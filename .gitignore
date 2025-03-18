@@ -1,0 +1,47 @@
+# Backend (Spring Boot)
+backend/target/
+backend/.idea/
+backend/*.iml
+backend/.vscode/
+backend/.settings/
+backend/.classpath
+backend/.project
+backend/.springBeans
+backend/.sts4-cache
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+
+# Frontend (React)
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.js
+frontend/coverage/
+frontend/build/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.idea/
+frontend/.vscode/
+frontend/*.iml
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/ 

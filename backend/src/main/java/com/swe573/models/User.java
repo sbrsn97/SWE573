@@ -41,6 +41,8 @@ public class User {
 
     private String bio;
 
+    private String location;
+
     private String profession;
 
     @Past

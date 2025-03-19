@@ -13,4 +13,6 @@ public interface UserService {
     void deleteUser(Long id);
     void followUser(Long followerId, Long followedId);
     void unfollowUser(Long followerId, Long followedId);
+    boolean authenticateUser(String username, String hashedPassword);
+    boolean registerUser(UserDTO userDTO);
 } 

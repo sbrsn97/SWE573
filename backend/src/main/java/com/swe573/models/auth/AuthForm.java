@@ -7,6 +7,12 @@ public class AuthForm {
     private String username;
     @Getter
     private String password;
+    @Getter
+    private String firstName;
+    @Getter
+    private String lastName;
+    @Getter
+    private String email;
 
     public AuthForm(String username, String password) {
         this.username = username;

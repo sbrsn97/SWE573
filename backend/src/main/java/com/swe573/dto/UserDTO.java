@@ -1,5 +1,7 @@
 package com.swe573.dto;
 
+import java.time.LocalDate;
+
 import lombok.Data;
 
 @Data
@@ -11,4 +13,5 @@ public class UserDTO {
     private String lastName;
     private String bio;
     private String location;
+    private LocalDate birthDate;
 } 

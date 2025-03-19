@@ -6,11 +6,13 @@ import com.swe573.models.User;
 import com.swe573.repositories.UserRepository;
 import com.swe573.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -88,10 +90,32 @@ public class UserServiceImpl implements UserService {
         user.setLocation(userDTO.getLocation());
     }
 
-    private void authenticateUser(String username, String password) {
-        String hashedPw = Hashing.sha256()
-            .hashString(password, StandardCharsets.UTF_8)
-            .toString();
-        User user = userRepository.findOne(User, )
+    @Override
+    public boolean authenticateUser(String username, String hashedPassword) {
+        
+        User searchUser = new User();
+        searchUser.setUsername(username);
+        searchUser.setPassword(hashedPassword);
+        Optional<User> user = userRepository.findOne(Example.of(searchUser));
+        return user.isPresent() ? true : false;
+    }
+
+    @Override
+    public boolean registerUser(UserDTO userDTO) {
+        User usernameSearch = new User();
+        usernameSearch.setUsername(userDTO.getUsername());
+        Optional<User> user = userRepository.findOne(Example.of(usernameSearch));
+
+        User emailSearch = new User();
+        emailSearch.setEmail(userDTO.getEmail());
+        Optional<User> emailUser = userRepository.findOne(Example.of(emailSearch));
+
+        if(user.isPresent() || emailUser.isPresent()) {
+            return false;
+        }
+        User newUser = new User();
+        updateUserFromDTO(newUser, userDTO);
+        userRepository.save(newUser);
+        return true;
     }
 } 

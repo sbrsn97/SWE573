@@ -6,16 +6,25 @@ import com.swe573.models.User;
 import com.swe573.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
+@CrossOrigin(origins = "*")
 @RequestMapping("/api/users")
 public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @GetMapping("/test")
+    public ResponseEntity<String> test() {
+        System.out.println("Test endpoint hit!");
+        return ResponseEntity.ok("Server is running!");
+    }
 
     @PostMapping
     public ResponseEntity<ApiResponse<User>> createUser(@RequestBody UserDTO userDTO) {
@@ -57,5 +66,18 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> unfollowUser(@PathVariable Long id, @PathVariable Long followedId) {
         userService.unfollowUser(id, followedId);
         return ResponseEntity.ok(ApiResponse.success("User unfollowed successfully", null));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<User>> getCurrentUser() {
+        System.out.println("Getting current user");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        System.out.println("Authentication: " + (authentication != null ? authentication.getName() : "null"));
+        System.out.println("Is authenticated: " + (authentication != null ? authentication.isAuthenticated() : "false"));
+        System.out.println("Authorities: " + (authentication != null ? authentication.getAuthorities() : "null"));
+        
+        User user = userService.getCurrentUser();
+        System.out.println("Found user: " + user.getUsername());
+        return ResponseEntity.ok(ApiResponse.success(user));
     }
 } 

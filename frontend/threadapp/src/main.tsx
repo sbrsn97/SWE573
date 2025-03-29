@@ -8,14 +8,17 @@ import Login from './components/auth/login/Login.tsx'
 import Register from './components/auth/register/Register.tsx'
 import { PrimeReactProvider } from 'primereact/api'
 import Tailwind from "primereact/passthrough/tailwind";
+import Profile from './components/profile/Profile.tsx'
+import Home from './components/home/Home.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
     <PrimeReactProvider value={{ pt: Tailwind }}>
       <StrictMode>
         <Routes>
-          <Route path="/" element={<App />} />
+          <Route path="/" element={<Home />} />
           <Route path="/auth" element={<AuthLayout />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </StrictMode>
     </PrimeReactProvider>

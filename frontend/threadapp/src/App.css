@@ -34,3 +34,9 @@
 .read-the-docs {
   color: #888;
 }
+
+
+.p-avatar-xl {
+  width: 5rem !important;
+  height: 5rem !important;
+}

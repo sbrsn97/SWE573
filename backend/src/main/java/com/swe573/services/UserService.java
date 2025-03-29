@@ -16,4 +16,5 @@ public interface UserService {
     boolean authenticateUser(String username, String password);
     boolean registerUser(UserDTO userDTO);
     long userCount();
+    User getCurrentUser();
 } 

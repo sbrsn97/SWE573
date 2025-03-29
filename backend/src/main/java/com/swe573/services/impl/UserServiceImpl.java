@@ -11,6 +11,8 @@ import com.swe573.services.UserService;
 import jakarta.annotation.PostConstruct;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -110,13 +112,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public boolean authenticateUser(String username, String password) {
-        return userRepository.findByUsername(username)
-                .map(user -> user.getPassword().equals(password))
-                .orElse(false);
+    public boolean authenticateUser(String username, String hashedPassword) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return user.getPassword().equals(hashedPassword);
     }
 
     @Override
+    @Transactional
     public boolean registerUser(UserDTO userDTO) {
         try {
             validateUniqueConstraints(userDTO);
@@ -132,25 +135,38 @@ public class UserServiceImpl implements UserService {
         return userRepository.count();
     }
 
-    private void validateUniqueConstraints(UserDTO userDTO) {
-        if (userRepository.existsByUsername(userDTO.getUsername())) {
-            throw new DuplicateResourceException("Username '" + userDTO.getUsername() + "' is already taken");
+    @Override
+    public User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("No authenticated user found");
         }
-        if (userRepository.existsByEmail(userDTO.getEmail())) {
-            throw new DuplicateResourceException("Email '" + userDTO.getEmail() + "' is already registered");
+
+        String username = authentication.getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    private void validateUniqueConstraints(UserDTO userDTO) {
+        if (userRepository.findByUsername(userDTO.getUsername()).isPresent()) {
+            throw new DuplicateResourceException("Username already exists");
+        }
+        if (userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
+            throw new DuplicateResourceException("Email already exists");
         }
     }
 
     private void updateUserFromDTO(User user, UserDTO userDTO) {
         user.setUsername(userDTO.getUsername());
-        user.setEmail(userDTO.getEmail());
-        user.setPassword(userDTO.getPassword());
         user.setFirstName(userDTO.getFirstName());
         user.setLastName(userDTO.getLastName());
-        user.setBio(userDTO.getBio());
-        user.setLocation(userDTO.getLocation());
-        if (userDTO.getRole() != null) {
-            user.setRole(userDTO.getRole());
+        user.setEmail(userDTO.getEmail());
+        user.setRole(userDTO.getRole());
+        if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
+            String hashedPassword = Hashing.sha256()
+                    .hashString(userDTO.getPassword(), StandardCharsets.UTF_8)
+                    .toString();
+            user.setPassword(hashedPassword);
         }
     }
 } 

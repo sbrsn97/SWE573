@@ -1,0 +1,78 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Navbar from '../layout/Navbar';
+
+interface User {
+  username: string;
+}
+
+const Home = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    console.log('Token:', token);
+    
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+
+    // Fetch user data
+    const fetchUserData = async () => {
+      try {
+        console.log('Fetching user data...');
+        const response = await fetch('http://localhost:8080/api/users/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('User data:', userData);
+          setUser(userData);
+        } else {
+          console.log('Failed to fetch user data:', response.status);
+          navigate('/auth');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        navigate('/auth');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    );
+  }
+
+  console.log('Rendering Home with user:', user);
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar user={user!} />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[80px]">
+        <section className="bg-white rounded-xl shadow-sm p-8 mb-8">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-2">
+            Welcome, {user?.username}!
+          </h1>
+          <p className="text-lg text-gray-600">
+            Start exploring and connecting with others.
+          </p>
+        </section>
+      </main>
+    </div>
+  );
+};
+
+export default Home; 

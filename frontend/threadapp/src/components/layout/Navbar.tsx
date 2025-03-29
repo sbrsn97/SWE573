@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaHome, FaSearch, FaCog, FaSignOutAlt } from 'react-icons/fa';
 import React from 'react';
+import { API_ENDPOINTS } from '../../config/config';
 
 interface User {
   username: string;
+  firstName: string;
+  lastName: string;
   profilePicture?: string;
 }
 
@@ -14,11 +17,25 @@ interface NavbarProps {
 
 const Navbar = ({ user }: NavbarProps) => {
   const [showSettings, setShowSettings] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/auth/logout', {
+      const response = await fetch(API_ENDPOINTS.auth.logout, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -35,10 +52,17 @@ const Navbar = ({ user }: NavbarProps) => {
     }
   };
 
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    return '';
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 h-[60px] bg-white shadow-sm z-50 px-4 py-2 flex items-center justify-between">
       <div className="flex-none">
-        <Link to="/" className="p-2 rounded-full text-blue-600 hover:bg-blue-50 transition-colors">
+        <Link to="/home" className="p-2 rounded-full text-blue-600 hover:bg-blue-50 transition-colors">
           <FaHome className="text-2xl" />
         </Link>
       </div>
@@ -54,14 +78,15 @@ const Navbar = ({ user }: NavbarProps) => {
         </div>
       </div>
 
-      <div className="flex-none relative">
+      <div className="flex-none flex items-center" ref={menuRef}>
+        <span className="text-gray-700 font-medium mr-3">{user?.username}</span>
         <div className="relative">
-          <img
-            src={user?.profilePicture || 'https://via.placeholder.com/40'}
-            alt="Profile"
-            className="w-10 h-10 rounded-full cursor-pointer object-cover border-2 border-blue-600"
+          <div
+            className="w-10 h-10 rounded-full cursor-pointer bg-blue-600 text-white flex items-center justify-center font-semibold text-sm border-2 border-blue-600"
             onClick={() => setShowSettings(!showSettings)}
-          />
+          >
+            {getInitials()}
+          </div>
           
           {showSettings && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1">

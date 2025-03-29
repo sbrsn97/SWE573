@@ -16,7 +16,7 @@ createRoot(document.getElementById('root')!).render(
     <PrimeReactProvider value={{ pt: Tailwind }}>
       <StrictMode>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/auth" element={<AuthLayout />} />
           <Route path="/profile" element={<Profile />} />
         </Routes>

@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../layout/Navbar';
+import { API_ENDPOINTS } from '../../config/config';
 
 interface User {
   username: string;
+  firstName: string;
+  lastName: string;
+  profilePicture?: string;
 }
 
 const Home = () => {
@@ -13,7 +17,6 @@ const Home = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    console.log('Token:', token);
     
     if (!token) {
       navigate('/auth');
@@ -23,19 +26,17 @@ const Home = () => {
     // Fetch user data
     const fetchUserData = async () => {
       try {
-        console.log('Fetching user data...');
-        const response = await fetch('http://localhost:8080/api/users/me', {
+        const response = await fetch(API_ENDPOINTS.users.me, {
           headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
           }
         });
 
         if (response.ok) {
-          const userData = await response.json();
-          console.log('User data:', userData);
-          setUser(userData);
+          const { data } = await response.json();
+          setUser(data);
         } else {
-          console.log('Failed to fetch user data:', response.status);
           navigate('/auth');
         }
       } catch (error) {
@@ -57,14 +58,17 @@ const Home = () => {
     );
   }
 
-  console.log('Rendering Home with user:', user);
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar user={user!} />
+      <Navbar user={user} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-[80px]">
         <section className="bg-white rounded-xl shadow-sm p-8 mb-8">
           <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-            Welcome, {user?.username}!
+            Welcome, {user.username}!
           </h1>
           <p className="text-lg text-gray-600">
             Start exploring and connecting with others.

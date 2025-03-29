@@ -37,7 +37,7 @@ function Login() {
 
       if (response.ok) {
         localStorage.setItem('token', data.data.token);
-        navigate("/");
+        navigate("/home");
       } else {
         setErrorMessage(data.message || "Invalid username or password");
         setShowError(true);

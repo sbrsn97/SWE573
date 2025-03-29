@@ -11,6 +11,7 @@ backend/.sts4-cache
 backend/.mvn/
 backend/mvnw
 backend/mvnw.cmd
+backend/src/main/resources/application.properties
 
 # Frontend (React)
 frontend/node_modules/

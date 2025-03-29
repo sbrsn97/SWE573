@@ -1,6 +1,5 @@
 package com.swe573.services.impl;
 
-import com.google.common.hash.Hashing;
 import com.swe573.dto.UserDTO;
 import com.swe573.exceptions.DuplicateResourceException;
 import com.swe573.models.User;
@@ -13,24 +12,29 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
+import com.google.common.hash.Hashing;
 
 @Service
 public class UserServiceImpl implements UserService {
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @PostConstruct
     private void setupAdmin() {
-        String hashedPw = Hashing.sha256()
-            .hashString("123456", StandardCharsets.UTF_8)
-            .toString();
         if(userCount() == 0) {
             UserDTO userDTO = new UserDTO();
             userDTO.setUsername("admin");
-            userDTO.setPassword(hashedPw);
+            userDTO.setPassword("123456"); // Raw password, will be encoded in createUser
             userDTO.setFirstName("Admin");
             userDTO.setLastName("Admin");
             userDTO.setEmail("admin@admin.com");
@@ -41,9 +45,6 @@ public class UserServiceImpl implements UserService {
         }
         System.out.println("Admin user already exists");
     }
-
-    @Autowired
-    private UserRepository userRepository;
 
     @Override
     @Transactional
@@ -100,26 +101,6 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public void unfollowUser(Long followerId, Long followedId) {
-        User follower = getUser(followerId);
-        User followed = getUser(followedId);
-        
-        follower.getFollowing().remove(followed);
-        followed.getFollowers().remove(follower);
-        
-        userRepository.save(follower);
-        userRepository.save(followed);
-    }
-
-    @Override
-    public boolean authenticateUser(String username, String hashedPassword) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return user.getPassword().equals(hashedPassword);
-    }
-
-    @Override
-    @Transactional
     public boolean registerUser(UserDTO userDTO) {
         try {
             validateUniqueConstraints(userDTO);
@@ -147,6 +128,26 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
+    @Override
+    @Transactional
+    public void unfollowUser(Long followerId, Long followedId) {
+        User follower = getUser(followerId);
+        User followed = getUser(followedId);
+        
+        follower.getFollowing().remove(followed);
+        followed.getFollowers().remove(follower);
+        
+        userRepository.save(follower);
+        userRepository.save(followed);
+    }
+
+    @Override
+    public boolean authenticateUser(String username, String password) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return passwordEncoder.matches(password, user.getPassword());
+    }
+
     private void validateUniqueConstraints(UserDTO userDTO) {
         if (userRepository.findByUsername(userDTO.getUsername()).isPresent()) {
             throw new DuplicateResourceException("Username already exists");
@@ -163,9 +164,7 @@ public class UserServiceImpl implements UserService {
         user.setEmail(userDTO.getEmail());
         user.setRole(userDTO.getRole());
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
-            String hashedPassword = Hashing.sha256()
-                    .hashString(userDTO.getPassword(), StandardCharsets.UTF_8)
-                    .toString();
+            String hashedPassword = passwordEncoder.encode(userDTO.getPassword());
             user.setPassword(hashedPassword);
         }
     }

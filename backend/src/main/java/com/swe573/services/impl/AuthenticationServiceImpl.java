@@ -1,19 +1,16 @@
 package com.swe573.services.impl;
 
-import com.google.common.hash.Hashing;
 import com.swe573.dto.UserDTO;
-import com.swe573.models.User;
 import com.swe573.services.AuthenticationService;
 import com.swe573.services.JwtService;
 import com.swe573.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
-
-import java.nio.charset.StandardCharsets;
 
 @Service
 public class AuthenticationServiceImpl implements AuthenticationService {
@@ -32,12 +29,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     public String authenticate(String username, String password) {
+        if (username == null || username.trim().isEmpty() || password == null || password.trim().isEmpty()) {
+            return null;
+        }
         try {
-            String hashedPassword = Hashing.sha256()
-                    .hashString(password, StandardCharsets.UTF_8)
-                    .toString();
+            // Use AuthenticationManager to validate credentials
+            Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(username, password)
+            );
             
-            if (userService.authenticateUser(username, hashedPassword)) {
+            if (authentication.isAuthenticated()) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                 return jwtService.generateToken(userDetails);
             }
@@ -49,10 +50,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     public boolean register(UserDTO userDTO) {
-        String hashedPassword = Hashing.sha256()
-                .hashString(userDTO.getPassword(), StandardCharsets.UTF_8)
-                .toString();
-        userDTO.setPassword(hashedPassword);
         return userService.registerUser(userDTO);
     }
 } 

@@ -52,7 +52,7 @@ function Login() {
   
   return (
     <div className='flex flex-col gap-2 w-[500px] h-[300px]'>
-      {showError && <div className="error-message">{errorMessage}</div>}
+      {showError && <div className="error-message text-red-500">{errorMessage}</div>}
       <InputText 
         value={username} 
         onChange={(e) => setUsername(e.target.value)} 

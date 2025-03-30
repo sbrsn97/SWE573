@@ -8,6 +8,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -23,7 +26,7 @@ import static org.mockito.Mockito.*;
 class AuthenticationServiceTest {
 
     @Mock
-    private UserService userService;
+    private AuthenticationManager authenticationManager;
 
     @Mock
     private JwtService jwtService;
@@ -45,8 +48,11 @@ class AuthenticationServiceTest {
             Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
         );
         String token = "test.jwt.token";
+        Authentication authentication = mock(Authentication.class);
 
-        when(userService.authenticateUser(eq(username), any())).thenReturn(true);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+            .thenReturn(authentication);
+        when(authentication.isAuthenticated()).thenReturn(true);
         when(userDetailsService.loadUserByUsername(username)).thenReturn(userDetails);
         when(jwtService.generateToken(userDetails)).thenReturn(token);
 
@@ -56,7 +62,7 @@ class AuthenticationServiceTest {
         // Assert
         assertNotNull(result);
         assertEquals(token, result);
-        verify(userService).authenticateUser(eq(username), any());
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(userDetailsService).loadUserByUsername(username);
         verify(jwtService).generateToken(userDetails);
     }
@@ -67,14 +73,15 @@ class AuthenticationServiceTest {
         String username = "nonexistentUser";
         String password = "password123";
 
-        when(userService.authenticateUser(eq(username), any())).thenReturn(false);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+            .thenThrow(new RuntimeException("User not found"));
 
         // Act
         String result = authenticationService.authenticate(username, password);
 
         // Assert
         assertNull(result);
-        verify(userService).authenticateUser(eq(username), any());
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(userDetailsService, never()).loadUserByUsername(any());
         verify(jwtService, never()).generateToken(any());
     }
@@ -84,15 +91,18 @@ class AuthenticationServiceTest {
         // Arrange
         String username = "testUser";
         String password = "wrongPassword";
+        Authentication authentication = mock(Authentication.class);
 
-        when(userService.authenticateUser(eq(username), any())).thenReturn(false);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+            .thenReturn(authentication);
+        when(authentication.isAuthenticated()).thenReturn(false);
 
         // Act
         String result = authenticationService.authenticate(username, password);
 
         // Assert
         assertNull(result);
-        verify(userService).authenticateUser(eq(username), any());
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(userDetailsService, never()).loadUserByUsername(any());
         verify(jwtService, never()).generateToken(any());
     }
@@ -104,7 +114,7 @@ class AuthenticationServiceTest {
         assertNull(authenticationService.authenticate("username", ""));
         assertNull(authenticationService.authenticate("", ""));
         
-        verify(userService, never()).authenticateUser(any(), any());
+        verify(authenticationManager, never()).authenticate(any());
         verify(userDetailsService, never()).loadUserByUsername(any());
         verify(jwtService, never()).generateToken(any());
     }
@@ -116,7 +126,7 @@ class AuthenticationServiceTest {
         assertNull(authenticationService.authenticate("username", null));
         assertNull(authenticationService.authenticate(null, null));
         
-        verify(userService, never()).authenticateUser(any(), any());
+        verify(authenticationManager, never()).authenticate(any());
         verify(userDetailsService, never()).loadUserByUsername(any());
         verify(jwtService, never()).generateToken(any());
     }

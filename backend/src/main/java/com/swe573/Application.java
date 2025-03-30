@@ -1,7 +1,5 @@
 package com.swe573;
 
-import java.nio.charset.StandardCharsets;
-
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 

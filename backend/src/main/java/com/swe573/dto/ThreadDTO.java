@@ -1,7 +1,6 @@
 package com.swe573.dto;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Set;
 
 public class ThreadDTO {

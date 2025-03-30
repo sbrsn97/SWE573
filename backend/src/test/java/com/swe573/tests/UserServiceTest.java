@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
@@ -32,6 +33,9 @@ public class UserServiceTest {
     @Mock
     private Authentication authentication;
 
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
     @InjectMocks
     private UserServiceImpl userService;
 
@@ -44,7 +48,7 @@ public class UserServiceTest {
         testUser.setId(1L);
         testUser.setUsername("testuser");
         testUser.setEmail("test@example.com");
-        testUser.setPassword("password123");
+        testUser.setPassword("encodedPassword");
         
         testUserDTO = new UserDTO();
         testUserDTO.setUsername("testuser");
@@ -105,6 +109,7 @@ public class UserServiceTest {
         String username = "testuser";
         String password = "password123";
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches(password, testUser.getPassword())).thenReturn(true);
 
         // Act
         boolean result = userService.authenticateUser(username, password);
@@ -112,6 +117,7 @@ public class UserServiceTest {
         // Assert
         assertTrue(result);
         verify(userRepository).findByUsername(username);
+        verify(passwordEncoder).matches(password, testUser.getPassword());
     }
 
     @Test
@@ -124,6 +130,7 @@ public class UserServiceTest {
         // Act & Assert
         assertThrows(RuntimeException.class, () -> userService.authenticateUser(username, password));
         verify(userRepository).findByUsername(username);
+        verify(passwordEncoder, never()).matches(any(), any());
     }
 
     @Test
@@ -132,6 +139,7 @@ public class UserServiceTest {
         String username = "testuser";
         String wrongPassword = "wrongpassword";
         when(userRepository.findByUsername(username)).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches(wrongPassword, testUser.getPassword())).thenReturn(false);
 
         // Act
         boolean result = userService.authenticateUser(username, wrongPassword);
@@ -139,6 +147,7 @@ public class UserServiceTest {
         // Assert
         assertFalse(result);
         verify(userRepository).findByUsername(username);
+        verify(passwordEncoder).matches(wrongPassword, testUser.getPassword());
     }
 
     @Test
@@ -146,6 +155,7 @@ public class UserServiceTest {
         // Arrange
         when(userRepository.findByUsername(testUserDTO.getUsername())).thenReturn(Optional.empty());
         when(userRepository.findByEmail(testUserDTO.getEmail())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(testUserDTO.getPassword())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         // Act
@@ -155,6 +165,7 @@ public class UserServiceTest {
         assertTrue(result);
         verify(userRepository, times(2)).findByUsername(testUserDTO.getUsername());
         verify(userRepository, times(2)).findByEmail(testUserDTO.getEmail());
+        verify(passwordEncoder).encode(testUserDTO.getPassword());
         verify(userRepository).save(any(User.class));
     }
 
@@ -170,6 +181,7 @@ public class UserServiceTest {
         assertFalse(result);
         verify(userRepository).findByUsername(testUserDTO.getUsername());
         verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(any());
     }
 
     @Test
@@ -186,5 +198,6 @@ public class UserServiceTest {
         verify(userRepository).findByUsername(testUserDTO.getUsername());
         verify(userRepository).findByEmail(testUserDTO.getEmail());
         verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(any());
     }
 } 

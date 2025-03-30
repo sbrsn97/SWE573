@@ -17,8 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.nio.charset.StandardCharsets;
-import com.google.common.hash.Hashing;
 
 @Service
 public class UserServiceImpl implements UserService {

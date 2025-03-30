@@ -3,6 +3,7 @@ package com.swe573.models;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import java.util.HashSet;
 import java.util.Set;
@@ -11,7 +12,8 @@ import java.util.Set;
 @NoArgsConstructor
 @Entity
 @Table(name = "tags")
-public class Tag {
+@EqualsAndHashCode(callSuper = true)
+public class Tag extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

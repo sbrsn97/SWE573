@@ -10,6 +10,7 @@ import com.swe573.repositories.ThreadRepository;
 import com.swe573.repositories.TagRepository;
 import com.swe573.repositories.UserRepository;
 import com.swe573.services.ThreadService;
+import com.swe573.services.VoteService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,9 @@ public class ThreadServiceImpl implements ThreadService {
 
     @Autowired
     private TagRepository tagRepository;
+
+    @Autowired
+    private VoteService voteService;
 
     @Override
     @Transactional
@@ -157,20 +161,11 @@ public class ThreadServiceImpl implements ThreadService {
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
-
-        // Remove existing vote if any
-        thread.getVotes().removeIf(vote -> vote.getUser().getId().equals(userId));
-
-        // Add new vote
-        Vote vote = new Vote();
-        vote.setThread(thread);
-        vote.setUser(user);
-        vote.setType(isUpvote ? VoteType.UPVOTE : VoteType.DOWNVOTE);
+        
+        VoteType voteType = isUpvote ? VoteType.UPVOTE : VoteType.DOWNVOTE;
+        Vote vote = voteService.createThreadVote(userId, threadId, voteType);
         thread.getVotes().add(vote);
-
-        // Update vote counts
-        updateVoteCounts(thread);
-
+        
         return threadRepository.save(thread);
     }
 
@@ -179,24 +174,10 @@ public class ThreadServiceImpl implements ThreadService {
     public Thread removeVote(Long threadId, Long userId) {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
-
-        thread.getVotes().removeIf(vote -> vote.getUser().getId().equals(userId));
-        updateVoteCounts(thread);
-
-        return threadRepository.save(thread);
-    }
-
-    private void updateVoteCounts(Thread thread) {
-        int upvotes = 0;
-        int downvotes = 0;
-        for (Vote vote : thread.getVotes()) {
-            if (vote.getType() == VoteType.UPVOTE) {
-                upvotes++;
-            } else {
-                downvotes++;
-            }
-        }
-        thread.setUpvoteCount(upvotes);
-        thread.setDownvoteCount(downvotes);
+        
+        voteService.deleteVoteByUserAndThread(userId, threadId);
+        
+        return threadRepository.findById(threadId)
+            .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
     }
 } 

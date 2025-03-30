@@ -4,7 +4,6 @@ import com.swe573.models.User;
 import com.swe573.repositories.UserRepository;
 import com.swe573.services.impl.UserServiceImpl;
 import com.swe573.dto.UserDTO;
-import com.swe573.exceptions.DuplicateResourceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

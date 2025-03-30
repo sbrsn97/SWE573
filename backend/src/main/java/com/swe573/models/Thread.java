@@ -2,17 +2,21 @@ package com.swe573.models;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
+import lombok.EqualsAndHashCode;
+import com.swe573.models.enums.VoteType;
 import java.util.HashSet;
 import java.util.Set;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @Entity
 @Table(name = "threads")
-public class Thread {
+@EqualsAndHashCode(callSuper = true)
+public class Thread extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -44,16 +48,16 @@ public class Thread {
     )
     private Set<User> threadFollowers = new HashSet<>();
 
-    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Comment> comments = new HashSet<>();
 
-    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Node> nodes = new HashSet<>();
 
-    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Edge> edges = new HashSet<>();
 
-    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Vote> votes = new HashSet<>();
 
     // Cached vote counts to avoid counting every time
@@ -63,20 +67,38 @@ public class Thread {
     @Column(name = "downvote_count")
     private int downvoteCount = 0;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+    public void addVote(Vote vote) {
+        votes.add(vote);
+        if (vote.getType() == VoteType.UPVOTE) {
+            upvoteCount++;
+        } else {
+            downvoteCount++;
+        }
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+    public void removeVote(Vote vote) {
+        if (votes.remove(vote)) {
+            if (vote.getType() == VoteType.UPVOTE) {
+                upvoteCount = Math.max(0, upvoteCount - 1);
+            } else {
+                downvoteCount = Math.max(0, downvoteCount - 1);
+            }
+        }
+    }
+
+    public int getVoteCount() {
+        return upvoteCount - downvoteCount;
+    }
+
+    @Override
+    public String toString() {
+        return "Thread{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", description='" + description + '\'' +
+                ", authorId=" + (author != null ? author.getId() : null) +
+                ", upvoteCount=" + upvoteCount +
+                ", downvoteCount=" + downvoteCount +
+                '}';
     }
 } 

@@ -9,6 +9,7 @@ import com.swe573.repositories.ThreadRepository;
 import com.swe573.repositories.TagRepository;
 import com.swe573.repositories.UserRepository;
 import com.swe573.services.impl.ThreadServiceImpl;
+import com.swe573.services.VoteService;
 import com.swe573.dto.ThreadDTO;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,9 @@ public class ThreadServiceTest {
     @Mock
     private TagRepository tagRepository;
 
+    @Mock
+    private VoteService voteService;
+
     @InjectMocks
     private ThreadServiceImpl threadService;
 
@@ -42,6 +46,7 @@ public class ThreadServiceTest {
     private User testUser;
     private Tag testTag;
     private ThreadDTO testThreadDTO;
+    private Vote testVote;
 
     @BeforeEach
     void setUp() {
@@ -59,6 +64,13 @@ public class ThreadServiceTest {
         testThread.setDescription("Test Description");
         testThread.setAuthor(testUser);
         testThread.setTags(new HashSet<>(Collections.singletonList(testTag)));
+        testThread.setVotes(new HashSet<>());
+
+        testVote = new Vote();
+        testVote.setId(1L);
+        testVote.setUser(testUser);
+        testVote.setThread(testThread);
+        testVote.setType(VoteType.UPVOTE);
 
         testThreadDTO = new ThreadDTO();
         testThreadDTO.setId(1L);
@@ -125,6 +137,7 @@ public class ThreadServiceTest {
         // Arrange
         when(threadRepository.findById(1L)).thenReturn(Optional.of(testThread));
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(voteService.createThreadVote(1L, 1L, VoteType.UPVOTE)).thenReturn(testVote);
         when(threadRepository.save(any(Thread.class))).thenReturn(testThread);
 
         // Act
@@ -137,6 +150,7 @@ public class ThreadServiceTest {
         assertEquals(VoteType.UPVOTE, vote.getType());
         assertEquals(testUser, vote.getUser());
         verify(threadRepository).save(any(Thread.class));
+        verify(voteService).createThreadVote(1L, 1L, VoteType.UPVOTE);
     }
 
     @Test
@@ -147,6 +161,7 @@ public class ThreadServiceTest {
         // Act & Assert
         assertThrows(EntityNotFoundException.class, () -> threadService.voteThread(1L, 1L, true));
         verify(threadRepository, never()).save(any(Thread.class));
+        verify(voteService, never()).createThreadVote(any(), any(), any());
     }
 
     @Test
@@ -158,6 +173,7 @@ public class ThreadServiceTest {
         // Act & Assert
         assertThrows(EntityNotFoundException.class, () -> threadService.voteThread(1L, 1L, true));
         verify(threadRepository, never()).save(any(Thread.class));
+        verify(voteService, never()).createThreadVote(any(), any(), any());
     }
 
     @Test

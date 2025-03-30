@@ -1,25 +1,13 @@
 package com.swe573.tests;
 
 import com.swe573.models.User;
-import com.swe573.models.Vote;
-import com.swe573.models.Thread;
-import com.swe573.models.Tag;
-import com.swe573.dto.ThreadDTO;
 import com.swe573.dto.UserRegistrationDTO;
 import com.swe573.dto.UserUpdateDTO;
 import com.swe573.dto.PasswordChangeDTO;
 import com.swe573.models.enums.Role;
-import com.swe573.models.enums.VoteType;
 import com.swe573.repositories.UserRepository;
-import com.swe573.repositories.ThreadRepository;
-import com.swe573.repositories.TagRepository;
-import com.swe573.services.UserService;
-import com.swe573.services.VoteService;
 import com.swe573.services.impl.UserServiceImpl;
-import com.swe573.services.impl.ThreadServiceImpl;
-import com.swe573.services.impl.TagServiceImpl;
 import com.swe573.exceptions.InvalidCredentialsException;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,8 +21,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.util.Optional;
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;

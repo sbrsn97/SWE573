@@ -1,7 +1,13 @@
 package com.swe573.services.impl;
 
 import com.swe573.dto.UserDTO;
+import com.swe573.dto.UserRegistrationDTO;
+import com.swe573.dto.UserLoginDTO;
+import com.swe573.dto.UserUpdateDTO;
+import com.swe573.dto.PasswordChangeDTO;
 import com.swe573.exceptions.DuplicateResourceException;
+import com.swe573.exceptions.InvalidCredentialsException;
+import com.swe573.exceptions.ResourceNotFoundException;
 import com.swe573.models.User;
 import com.swe573.models.enums.Role;
 import com.swe573.repositories.UserRepository;
@@ -16,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -30,14 +37,13 @@ public class UserServiceImpl implements UserService {
     @PostConstruct
     private void setupAdmin() {
         if(userCount() == 0) {
-            UserDTO userDTO = new UserDTO();
-            userDTO.setUsername("admin");
-            userDTO.setPassword("123456"); // Raw password, will be encoded in createUser
-            userDTO.setFirstName("Admin");
-            userDTO.setLastName("Admin");
-            userDTO.setEmail("admin@admin.com");
-            userDTO.setRole(Role.ADMIN);
-            registerUser(userDTO);
+            UserRegistrationDTO adminDTO = new UserRegistrationDTO();
+            adminDTO.setUsername("admin");
+            adminDTO.setPassword("123456"); // Raw password, will be encoded in registerUser
+            adminDTO.setFirstName("Admin");
+            adminDTO.setLastName("Admin");
+            adminDTO.setEmail("admin@admin.com");
+            registerUser(adminDTO);
             System.out.println("Admin user created");
             return;
         }
@@ -46,17 +52,31 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public User createUser(UserDTO userDTO) {
-        validateUniqueConstraints(userDTO);
+    public User registerUser(UserRegistrationDTO registrationDTO) {
+        validateUniqueConstraints(registrationDTO);
         User user = new User();
-        updateUserFromDTO(user, userDTO);
+        updateUserFromRegistrationDTO(user, registrationDTO);
+        return userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public User loginUser(UserLoginDTO loginDTO) {
+        User user = userRepository.findByUsername(loginDTO.getUsername())
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid username or password"));
+        
+        if (!passwordEncoder.matches(loginDTO.getPassword(), user.getPassword())) {
+            throw new InvalidCredentialsException("Invalid username or password");
+        }
+
+        user.setLastLoginAt(LocalDateTime.now());
         return userRepository.save(user);
     }
 
     @Override
     public User getUser(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
     }
 
     @Override
@@ -66,15 +86,27 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public User updateUser(Long id, UserDTO userDTO) {
+    public User updateUser(Long id, UserUpdateDTO updateDTO) {
         User existingUser = getUser(id);
-        // Only check for duplicates if username or email is being changed
-        if (!existingUser.getUsername().equals(userDTO.getUsername()) || 
-            !existingUser.getEmail().equals(userDTO.getEmail())) {
-            validateUniqueConstraints(userDTO);
-        }
-        updateUserFromDTO(existingUser, userDTO);
+        updateUserFromUpdateDTO(existingUser, updateDTO);
         return userRepository.save(existingUser);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(Long id, PasswordChangeDTO passwordDTO) {
+        User user = getUser(id);
+        
+        if (!passwordEncoder.matches(passwordDTO.getCurrentPassword(), user.getPassword())) {
+            throw new InvalidCredentialsException("Current password is incorrect");
+        }
+        
+        if (!passwordDTO.getNewPassword().equals(passwordDTO.getConfirmPassword())) {
+            throw new InvalidCredentialsException("New passwords do not match");
+        }
+        
+        user.setPassword(passwordEncoder.encode(passwordDTO.getNewPassword()));
+        userRepository.save(user);
     }
 
     @Override
@@ -99,35 +131,6 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public boolean registerUser(UserDTO userDTO) {
-        try {
-            validateUniqueConstraints(userDTO);
-            createUser(userDTO);
-            return true;
-        } catch (DuplicateResourceException e) {
-            return false;
-        }
-    }
-
-    @Override
-    public long userCount() {
-        return userRepository.count();
-    }
-
-    @Override
-    public User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("No authenticated user found");
-        }
-
-        String username = authentication.getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
-
-    @Override
-    @Transactional
     public void unfollowUser(Long followerId, Long followedId) {
         User follower = getUser(followerId);
         User followed = getUser(followedId);
@@ -140,34 +143,51 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public boolean authenticateUser(String username, String password) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return passwordEncoder.matches(password, user.getPassword());
+    public User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResourceNotFoundException("No authenticated user found");
+        }
+
+        String username = authentication.getName();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
-    private void validateUniqueConstraints(UserDTO userDTO) {
-        if (userRepository.findByUsername(userDTO.getUsername()).isPresent()) {
+    @Override
+    public long userCount() {
+        return userRepository.count();
+    }
+
+    private void validateUniqueConstraints(UserRegistrationDTO registrationDTO) {
+        if (userRepository.findByUsername(registrationDTO.getUsername()).isPresent()) {
             throw new DuplicateResourceException("Username already exists");
         }
-        if (userRepository.findByEmail(userDTO.getEmail()).isPresent()) {
+        if (userRepository.findByEmail(registrationDTO.getEmail()).isPresent()) {
             throw new DuplicateResourceException("Email already exists");
         }
     }
 
-    private void updateUserFromDTO(User user, UserDTO userDTO) {
-        user.setUsername(userDTO.getUsername());
-        user.setFirstName(userDTO.getFirstName());
-        user.setLastName(userDTO.getLastName());
-        user.setEmail(userDTO.getEmail());
-        user.setRole(userDTO.getRole());
-        user.setBirthDate(userDTO.getBirthDate());
-        user.setBio(userDTO.getBio());
-        user.setLocation(userDTO.getLocation());
-        user.setProfession(userDTO.getProfession());
-        if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
-            String hashedPassword = passwordEncoder.encode(userDTO.getPassword());
-            user.setPassword(hashedPassword);
-        }
+    private void updateUserFromRegistrationDTO(User user, UserRegistrationDTO dto) {
+        user.setUsername(dto.getUsername());
+        user.setFirstName(dto.getFirstName());
+        user.setLastName(dto.getLastName());
+        user.setEmail(dto.getEmail());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setBirthDate(dto.getBirthDate());
+        user.setBio(dto.getBio());
+        user.setLocation(dto.getLocation());
+        user.setProfession(dto.getProfession());
+        user.setRole(Role.USER);
+    }
+
+    private void updateUserFromUpdateDTO(User user, UserUpdateDTO dto) {
+        user.setFirstName(dto.getFirstName());
+        user.setLastName(dto.getLastName());
+        user.setBirthDate(dto.getBirthDate());
+        user.setBio(dto.getBio());
+        user.setLocation(dto.getLocation());
+        user.setProfession(dto.getProfession());
+        user.setNotificationPreferences(dto.getNotificationPreferences());
     }
 } 

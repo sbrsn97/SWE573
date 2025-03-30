@@ -1,6 +1,7 @@
 package com.swe573.controllers;
 
 import com.swe573.dto.ApiResponse;
+import com.swe573.dto.VoteDTO;
 import com.swe573.models.User;
 import com.swe573.models.Vote;
 import com.swe573.models.enums.VoteType;
@@ -32,8 +33,10 @@ public class VoteController {
         Vote vote = voteService.createThreadVote(userId, threadId, voteType);
         int voteCount = voteService.getThreadVoteCount(threadId);
 
+        VoteDTO voteDTO = convertToDTO(vote);
+
         Map<String, Object> response = new HashMap<>();
-        response.put("vote", vote);
+        response.put("vote", voteDTO);
         response.put("voteCount", voteCount);
 
         return ResponseEntity.ok(ApiResponse.success("Vote recorded successfully", response));
@@ -50,8 +53,10 @@ public class VoteController {
         Vote vote = voteService.createCommentVote(userId, commentId, voteType);
         int voteCount = voteService.getCommentVoteCount(commentId);
 
+        VoteDTO voteDTO = convertToDTO(vote);
+
         Map<String, Object> response = new HashMap<>();
-        response.put("vote", vote);
+        response.put("vote", voteDTO);
         response.put("voteCount", voteCount);
 
         return ResponseEntity.ok(ApiResponse.success("Vote recorded successfully", response));
@@ -121,5 +126,16 @@ public class VoteController {
         response.put("voteCount", voteCount);
 
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    private VoteDTO convertToDTO(Vote vote) {
+        VoteDTO dto = new VoteDTO();
+        dto.setId(vote.getId());
+        dto.setType(vote.getType());
+        dto.setUserId(vote.getUser().getId());
+        dto.setThreadId(vote.getThread() != null ? vote.getThread().getId() : null);
+        dto.setCommentId(vote.getComment() != null ? vote.getComment().getId() : null);
+        dto.setCreatedAt(vote.getCreatedAt());
+        return dto;
     }
 } 

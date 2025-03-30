@@ -3,96 +3,44 @@ package com.swe573.dto;
 import java.time.LocalDateTime;
 import java.util.Set;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Data
+@Schema(description = "Data transfer object for thread information")
 public class ThreadDTO {
+    @Schema(description = "Unique identifier of the thread")
     private Long id;
+    
+    @NotBlank(message = "Title is required")
+    @Schema(description = "Title of the thread", example = "How to use Spring Boot?")
     private String title;
+    
+    @NotBlank(message = "Description is required")
+    @Schema(description = "Description of the thread", example = "I need help understanding Spring Boot basics")
     private String description;
+    
+    @NotNull(message = "Author ID is required")
+    @Schema(description = "ID of the thread author")
     private Long authorId;
+    
+    @Schema(description = "Set of tag labels associated with the thread")
     private Set<String> tags;
+    
+    @Schema(description = "Set of user IDs following this thread")
     private Set<Long> followerIds;
+    
+    @Schema(description = "Number of upvotes on the thread")
     private int upvoteCount;
+    
+    @Schema(description = "Number of downvotes on the thread")
     private int downvoteCount;
+    
+    @Schema(description = "Timestamp when the thread was created")
     private LocalDateTime createdAt;
+    
+    @Schema(description = "Timestamp when the thread was last updated")
     private LocalDateTime updatedAt;
-
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public Long getAuthorId() {
-        return authorId;
-    }
-
-    public void setAuthorId(Long authorId) {
-        this.authorId = authorId;
-    }
-
-    public Set<String> getTags() {
-        return tags;
-    }
-
-    public void setTags(Set<String> tags) {
-        this.tags = tags;
-    }
-
-    public Set<Long> getFollowerIds() {
-        return followerIds;
-    }
-
-    public void setFollowerIds(Set<Long> followerIds) {
-        this.followerIds = followerIds;
-    }
-
-    public int getUpvoteCount() {
-        return upvoteCount;
-    }
-
-    public void setUpvoteCount(int upvoteCount) {
-        this.upvoteCount = upvoteCount;
-    }
-
-    public int getDownvoteCount() {
-        return downvoteCount;
-    }
-
-    public void setDownvoteCount(int downvoteCount) {
-        this.downvoteCount = downvoteCount;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 } 

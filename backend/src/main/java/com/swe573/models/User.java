@@ -1,5 +1,6 @@
 package com.swe573.models;
 
+import com.swe573.models.enums.NotificationType;
 import com.swe573.models.enums.Role;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -9,7 +10,10 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 @Data
@@ -52,6 +56,18 @@ public class User extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;
 
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
+
+    @Column(name = "reputation")
+    private int reputation = 0;
+
+    @ElementCollection
+    @CollectionTable(name = "user_notification_preferences")
+    @MapKeyEnumerated(EnumType.STRING)
+    @Column(name = "enabled")
+    private Map<NotificationType, Boolean> notificationPreferences = new HashMap<>();
+
     // Users who follow this user
     @ManyToMany
     @JoinTable(
@@ -79,7 +95,4 @@ public class User extends BaseEntity {
     // Threads that this user follows
     @ManyToMany(mappedBy = "threadFollowers")
     private Set<Thread> followedThreads = new HashSet<>();
-
-    @Column(name = "notification_enabled")
-    private boolean notificationEnabled = true;
 } 

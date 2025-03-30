@@ -3,7 +3,7 @@ package com.swe573.tests;
 import com.swe573.models.User;
 import com.swe573.repositories.UserRepository;
 import com.swe573.services.impl.UserServiceImpl;
-import com.swe573.dto.UserDTO;
+import com.swe573.dto.UserRegistrationDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +39,7 @@ public class UserServiceTest {
     private UserServiceImpl userService;
 
     private User testUser;
-    private UserDTO testUserDTO;
+    private UserRegistrationDTO testRegistrationDTO;
 
     @BeforeEach
     void setUp() {
@@ -49,12 +49,12 @@ public class UserServiceTest {
         testUser.setEmail("test@example.com");
         testUser.setPassword("encodedPassword");
         
-        testUserDTO = new UserDTO();
-        testUserDTO.setUsername("testuser");
-        testUserDTO.setEmail("test@example.com");
-        testUserDTO.setPassword("password123");
-        testUserDTO.setFirstName("Test");
-        testUserDTO.setLastName("User");
+        testRegistrationDTO = new UserRegistrationDTO();
+        testRegistrationDTO.setUsername("testuser");
+        testRegistrationDTO.setEmail("test@example.com");
+        testRegistrationDTO.setPassword("password123");
+        testRegistrationDTO.setFirstName("Test");
+        testRegistrationDTO.setLastName("User");
         
         // Setup SecurityContext mock
         SecurityContextHolder.setContext(securityContext);
@@ -103,82 +103,32 @@ public class UserServiceTest {
     }
 
     @Test
-    void authenticateUser_Success() {
-        // Arrange
-        String username = "testuser";
-        String password = "password123";
-        when(userRepository.findByUsername(username)).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.matches(password, testUser.getPassword())).thenReturn(true);
-
-        // Act
-        boolean result = userService.authenticateUser(username, password);
-
-        // Assert
-        assertTrue(result);
-        verify(userRepository).findByUsername(username);
-        verify(passwordEncoder).matches(password, testUser.getPassword());
-    }
-
-    @Test
-    void authenticateUser_UserNotFound() {
-        // Arrange
-        String username = "nonexistentuser";
-        String password = "password123";
-        when(userRepository.findByUsername(username)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThrows(RuntimeException.class, () -> userService.authenticateUser(username, password));
-        verify(userRepository).findByUsername(username);
-        verify(passwordEncoder, never()).matches(any(), any());
-    }
-
-    @Test
-    void authenticateUser_WrongPassword() {
-        // Arrange
-        String username = "testuser";
-        String wrongPassword = "wrongpassword";
-        when(userRepository.findByUsername(username)).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.matches(wrongPassword, testUser.getPassword())).thenReturn(false);
-
-        // Act
-        boolean result = userService.authenticateUser(username, wrongPassword);
-
-        // Assert
-        assertFalse(result);
-        verify(userRepository).findByUsername(username);
-        verify(passwordEncoder).matches(wrongPassword, testUser.getPassword());
-    }
-
-    @Test
     void registerUser_Success() {
         // Arrange
-        when(userRepository.findByUsername(testUserDTO.getUsername())).thenReturn(Optional.empty());
-        when(userRepository.findByEmail(testUserDTO.getEmail())).thenReturn(Optional.empty());
-        when(passwordEncoder.encode(testUserDTO.getPassword())).thenReturn("encodedPassword");
+        when(userRepository.findByUsername(testRegistrationDTO.getUsername())).thenReturn(Optional.empty());
+        when(userRepository.findByEmail(testRegistrationDTO.getEmail())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(testRegistrationDTO.getPassword())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         // Act
-        boolean result = userService.registerUser(testUserDTO);
+        User result = userService.registerUser(testRegistrationDTO);
 
         // Assert
-        assertTrue(result);
-        verify(userRepository, times(2)).findByUsername(testUserDTO.getUsername());
-        verify(userRepository, times(2)).findByEmail(testUserDTO.getEmail());
-        verify(passwordEncoder).encode(testUserDTO.getPassword());
+        assertNotNull(result);
+        verify(userRepository).findByUsername(testRegistrationDTO.getUsername());
+        verify(userRepository).findByEmail(testRegistrationDTO.getEmail());
+        verify(passwordEncoder).encode(testRegistrationDTO.getPassword());
         verify(userRepository).save(any(User.class));
     }
 
     @Test
     void registerUser_DuplicateUsername() {
         // Arrange
-        when(userRepository.findByUsername(testUserDTO.getUsername())).thenReturn(Optional.of(testUser));
+        when(userRepository.findByUsername(testRegistrationDTO.getUsername())).thenReturn(Optional.of(testUser));
 
-        // Act
-        boolean result = userService.registerUser(testUserDTO);
-
-        // Assert
-        assertFalse(result);
-        verify(userRepository).findByUsername(testUserDTO.getUsername());
+        // Act & Assert
+        assertThrows(RuntimeException.class, () -> userService.registerUser(testRegistrationDTO));
+        verify(userRepository).findByUsername(testRegistrationDTO.getUsername());
         verify(userRepository, never()).save(any(User.class));
         verify(passwordEncoder, never()).encode(any());
     }
@@ -186,16 +136,13 @@ public class UserServiceTest {
     @Test
     void registerUser_DuplicateEmail() {
         // Arrange
-        when(userRepository.findByUsername(testUserDTO.getUsername())).thenReturn(Optional.empty());
-        when(userRepository.findByEmail(testUserDTO.getEmail())).thenReturn(Optional.of(testUser));
+        when(userRepository.findByUsername(testRegistrationDTO.getUsername())).thenReturn(Optional.empty());
+        when(userRepository.findByEmail(testRegistrationDTO.getEmail())).thenReturn(Optional.of(testUser));
 
-        // Act
-        boolean result = userService.registerUser(testUserDTO);
-
-        // Assert
-        assertFalse(result);
-        verify(userRepository).findByUsername(testUserDTO.getUsername());
-        verify(userRepository).findByEmail(testUserDTO.getEmail());
+        // Act & Assert
+        assertThrows(RuntimeException.class, () -> userService.registerUser(testRegistrationDTO));
+        verify(userRepository).findByUsername(testRegistrationDTO.getUsername());
+        verify(userRepository).findByEmail(testRegistrationDTO.getEmail());
         verify(userRepository, never()).save(any(User.class));
         verify(passwordEncoder, never()).encode(any());
     }

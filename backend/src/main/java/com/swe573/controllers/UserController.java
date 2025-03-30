@@ -2,6 +2,10 @@ package com.swe573.controllers;
 
 import com.swe573.dto.ApiResponse;
 import com.swe573.dto.UserDTO;
+import com.swe573.dto.UserRegistrationDTO;
+import com.swe573.dto.UserLoginDTO;
+import com.swe573.dto.UserUpdateDTO;
+import com.swe573.dto.PasswordChangeDTO;
 import com.swe573.models.User;
 import com.swe573.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -26,28 +31,47 @@ public class UserController {
         return ResponseEntity.ok("Server is running!");
     }
 
-    @PostMapping
-    public ResponseEntity<ApiResponse<User>> createUser(@RequestBody UserDTO userDTO) {
-        User user = userService.createUser(userDTO);
-        return ResponseEntity.ok(ApiResponse.success("User created successfully", user));
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<UserDTO>> registerUser(@RequestBody UserRegistrationDTO registrationDTO) {
+        User user = userService.registerUser(registrationDTO);
+        return ResponseEntity.ok(ApiResponse.success("User registered successfully", convertToDTO(user)));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<UserDTO>> loginUser(@RequestBody UserLoginDTO loginDTO) {
+        User user = userService.loginUser(loginDTO);
+        return ResponseEntity.ok(ApiResponse.success("Login successful", convertToDTO(user)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> getUser(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<UserDTO>> getUser(@PathVariable Long id) {
         User user = userService.getUser(id);
-        return ResponseEntity.ok(ApiResponse.success(user));
+        return ResponseEntity.ok(ApiResponse.success(convertToDTO(user)));
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<User>>> getAllUsers() {
+    public ResponseEntity<ApiResponse<List<UserDTO>>> getAllUsers() {
         List<User> users = userService.getAllUsers();
-        return ResponseEntity.ok(ApiResponse.success(users));
+        List<UserDTO> dtos = users.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(dtos));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<User>> updateUser(@PathVariable Long id, @RequestBody UserDTO userDTO) {
-        User user = userService.updateUser(id, userDTO);
-        return ResponseEntity.ok(ApiResponse.success("User updated successfully", user));
+    public ResponseEntity<ApiResponse<UserDTO>> updateUser(
+            @PathVariable Long id,
+            @RequestBody UserUpdateDTO updateDTO) {
+        User user = userService.updateUser(id, updateDTO);
+        return ResponseEntity.ok(ApiResponse.success("User updated successfully", convertToDTO(user)));
+    }
+
+    @PutMapping("/{id}/password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @PathVariable Long id,
+            @RequestBody PasswordChangeDTO passwordDTO) {
+        userService.changePassword(id, passwordDTO);
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
     }
 
     @DeleteMapping("/{id}")
@@ -69,15 +93,26 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<User>> getCurrentUser() {
-        System.out.println("Getting current user");
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        System.out.println("Authentication: " + (authentication != null ? authentication.getName() : "null"));
-        System.out.println("Is authenticated: " + (authentication != null ? authentication.isAuthenticated() : "false"));
-        System.out.println("Authorities: " + (authentication != null ? authentication.getAuthorities() : "null"));
-        
+    public ResponseEntity<ApiResponse<UserDTO>> getCurrentUser() {
         User user = userService.getCurrentUser();
-        System.out.println("Found user: " + user.getUsername());
-        return ResponseEntity.ok(ApiResponse.success(user));
+        return ResponseEntity.ok(ApiResponse.success(convertToDTO(user)));
+    }
+
+    private UserDTO convertToDTO(User user) {
+        UserDTO dto = new UserDTO();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setFirstName(user.getFirstName());
+        dto.setLastName(user.getLastName());
+        dto.setBio(user.getBio());
+        dto.setLocation(user.getLocation());
+        dto.setBirthDate(user.getBirthDate());
+        dto.setProfession(user.getProfession());
+        dto.setRole(user.getRole());
+        dto.setLastLoginAt(user.getLastLoginAt());
+        dto.setReputation(user.getReputation());
+        dto.setNotificationPreferences(user.getNotificationPreferences());
+        return dto;
     }
 } 

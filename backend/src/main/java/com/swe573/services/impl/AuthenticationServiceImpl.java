@@ -1,6 +1,8 @@
 package com.swe573.services.impl;
 
 import com.swe573.dto.UserDTO;
+import com.swe573.dto.UserRegistrationDTO;
+import com.swe573.models.User;
 import com.swe573.services.AuthenticationService;
 import com.swe573.services.JwtService;
 import com.swe573.services.UserService;
@@ -49,7 +51,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public boolean register(UserDTO userDTO) {
-        return userService.registerUser(userDTO);
+    public User register(UserRegistrationDTO registrationDTO) {
+        return userService.registerUser(registrationDTO);
     }
 } 

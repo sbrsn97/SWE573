@@ -1,50 +1,25 @@
 package com.swe573.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Data
+@Schema(description = "Data transfer object for tag information")
 public class TagDTO {
+    @Schema(description = "Unique identifier of the tag")
     private Long id;
+    
+    @Schema(description = "Wikidata entity ID associated with the tag")
     private String wikidataEntityId;
+    
+    @NotBlank(message = "Label is required")
+    @Schema(description = "Display label of the tag", example = "Java")
     private String label;
+    
+    @Schema(description = "Description of the tag", example = "Java programming language")
     private String description;
+    
+    @Schema(description = "Color code for the tag in hex format", example = "#FF0000")
     private String colorCodeString;
-
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getWikidataEntityId() {
-        return wikidataEntityId;
-    }
-
-    public void setWikidataEntityId(String wikidataEntityId) {
-        this.wikidataEntityId = wikidataEntityId;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public void setLabel(String label) {
-        this.label = label;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getColorCodeString() {
-        return colorCodeString;
-    }
-
-    public void setColorCodeString(String colorCodeString) {
-        this.colorCodeString = colorCodeString;
-    }
 } 

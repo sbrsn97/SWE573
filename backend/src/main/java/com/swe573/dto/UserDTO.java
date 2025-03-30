@@ -16,5 +16,6 @@ public class UserDTO {
     private String bio;
     private String location;
     private LocalDate birthDate;
+    private String profession;
     private Role role = Role.USER;
 } 

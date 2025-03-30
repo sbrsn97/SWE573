@@ -163,6 +163,10 @@ public class UserServiceImpl implements UserService {
         user.setLastName(userDTO.getLastName());
         user.setEmail(userDTO.getEmail());
         user.setRole(userDTO.getRole());
+        user.setBirthDate(userDTO.getBirthDate());
+        user.setBio(userDTO.getBio());
+        user.setLocation(userDTO.getLocation());
+        user.setProfession(userDTO.getProfession());
         if (userDTO.getPassword() != null && !userDTO.getPassword().isEmpty()) {
             String hashedPassword = passwordEncoder.encode(userDTO.getPassword());
             user.setPassword(hashedPassword);

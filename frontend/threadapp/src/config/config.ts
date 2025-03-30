@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
     },
     users: {
         me: `${API_BASE_URL}/users/me`,
-        all: `${API_BASE_URL}/users`
+        all: `${API_BASE_URL}/users`,
+        update: (id: number) => `${API_BASE_URL}/users/${id}`
     }
 }; 

@@ -7,17 +7,19 @@ import { InputText } from 'primereact/inputtext';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Button } from 'primereact/button';
 import { useNavigate } from 'react-router';
+import { Toast } from 'primereact/toast';
 import Navbar from '../layout/Navbar';
 import { API_ENDPOINTS } from '../../config/config';
 import 'primeicons/primeicons.css';
 
 interface User {
+  id: number;
   firstName: string;
   lastName: string;
   username: string;
   email: string;
   role: string;
-  initials: string;
+  initials?: string;
   bio?: string;
   location?: string;
   profession?: string;
@@ -37,7 +39,9 @@ function Profile() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
+  const [updating, setUpdating] = useState(false);
   const navigate = useNavigate();
+  const toast = React.useRef<Toast>(null);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -55,29 +59,63 @@ function Profile() {
 
   const handleSave = async () => {
     if (!editingField || !user) return;
-
+    
+    setUpdating(true);
     try {
-      const response = await fetch(API_ENDPOINTS.users.me, {
+      // Create update payload with the full user data and the updated field
+      const updatePayload = {
+        ...user,
+        [editingField.name]: editingField.value
+      };
+
+      // Remove any fields that shouldn't be sent to the backend
+      delete updatePayload.initials;
+      delete updatePayload.followers;
+      delete updatePayload.following;
+
+      const response = await fetch(API_ENDPOINTS.users.update(user.id), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          ...user,
-          [editingField.name]: editingField.value
-        })
+        body: JSON.stringify(updatePayload)
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setUser({...data.data, initials: data.data.firstName.charAt(0) + data.data.lastName.charAt(0)});
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
       }
+
+      const data = await response.json();
+      
+      // Update the user state with the response data
+      if (data.data) {
+        setUser({
+          ...data.data,
+          initials: data.data.firstName.charAt(0) + data.data.lastName.charAt(0)
+        });
+      }
+
+      toast.current?.show({
+        severity: 'success',
+        summary: 'Success',
+        detail: `${editingField.name.charAt(0).toUpperCase() + editingField.name.slice(1)} updated successfully`,
+        life: 3000
+      });
+
+      setEditingField(null);
     } catch (error) {
       console.error('Error updating user:', error);
+      toast.current?.show({
+        severity: 'error',
+        summary: 'Error',
+        detail: error instanceof Error ? error.message : 'Failed to update profile',
+        life: 5000
+      });
+    } finally {
+      setUpdating(false);
     }
-
-    setEditingField(null);
   };
 
   const handleCancel = () => {
@@ -123,25 +161,66 @@ function Profile() {
                   onChange={(e) => setEditingField({ ...editingField, value: e.target.value })}
                   rows={3}
                   className="flex-1"
+                  disabled={updating}
                 />
               ) : name === 'birthDate' ? (
-                <Calendar
-                  value={editingField.value ? new Date(editingField.value) : null}
-                  onChange={(e) => setEditingField({ ...editingField, value: e.value?.toISOString() || '' })}
-                  dateFormat="dd.mm.yy"
-                  showIcon
-                />
+                <div className="flex-1 flex justify-between items-center">
+                  <Calendar
+                    value={editingField.value ? new Date(editingField.value) : null}
+                    onChange={(e) => setEditingField({ ...editingField, value: e.value?.toISOString() || '' })}
+                    dateFormat="dd.mm.yy"
+                    showIcon
+                    disabled={updating}
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      icon="pi pi-check" 
+                      rounded 
+                      outlined 
+                      severity="success" 
+                      onClick={handleSave}
+                      loading={updating}
+                      disabled={updating}
+                    />
+                    <Button 
+                      icon="pi pi-times" 
+                      rounded 
+                      outlined 
+                      severity="danger" 
+                      onClick={handleCancel}
+                      disabled={updating}
+                    />
+                  </div>
+                </div>
               ) : (
                 <InputText
                   value={editingField.value}
                   onChange={(e) => setEditingField({ ...editingField, value: e.target.value })}
                   className="flex-1"
+                  disabled={updating}
                 />
               )}
-              <div className="flex gap-2">
-                <Button icon="pi pi-check" rounded outlined severity="success" onClick={handleSave} />
-                <Button icon="pi pi-times" rounded outlined severity="danger" onClick={handleCancel} />
-              </div>
+              {name !== 'birthDate' && (
+                <div className="flex gap-2">
+                  <Button 
+                    icon="pi pi-check" 
+                    rounded 
+                    outlined 
+                    severity="success" 
+                    onClick={handleSave}
+                    loading={updating}
+                    disabled={updating}
+                  />
+                  <Button 
+                    icon="pi pi-times" 
+                    rounded 
+                    outlined 
+                    severity="danger" 
+                    onClick={handleCancel}
+                    disabled={updating}
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-between">
@@ -166,6 +245,7 @@ function Profile() {
 
   return (
     <div className="min-h-screen bg-white">
+      <Toast ref={toast} />
       <Navbar user={user} />
       <div className="flex justify-center items-center min-h-[calc(100vh-60px)] mt-[60px]">
         <Card className="w-full max-w-2xl shadow-lg mx-4">

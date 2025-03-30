@@ -28,8 +28,10 @@ public class AuthController {
         try {
             authService.register(registrationDTO);
             return ResponseEntity.ok(ApiResponse.success("User registered successfully", null));
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage()));
         }
     }
 
@@ -39,10 +41,23 @@ public class AuthController {
             @Parameter(description = "User login credentials", required = true) @RequestBody UserLoginDTO loginDTO) {
         try {
             String token = authService.authenticate(loginDTO.getUsername(), loginDTO.getPassword());
+            if (token == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Invalid credentials"));
+            }
             Map<String, String> response = Map.of("token", token);
             return ResponseEntity.ok(ApiResponse.success("Login successful", response));
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    @Operation(summary = "Logout user", description = "Logs out the current user")
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout() {
+        // Since we're using JWT, the actual token invalidation happens on the client side
+        // by removing the token from storage
+        return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
     }
 }

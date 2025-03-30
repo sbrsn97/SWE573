@@ -84,6 +84,11 @@ function Profile() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 401 && errorData.code === 'TOKEN_EXPIRED') {
+          localStorage.removeItem('token');
+          navigate('/auth');
+          return;
+        }
         throw new Error(errorData.message || 'Failed to update profile');
       }
 
@@ -135,6 +140,18 @@ function Profile() {
           'Authorization': `Bearer ${token}`
         }
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 401 && errorData.code === 'TOKEN_EXPIRED') {
+          localStorage.removeItem('token');
+          navigate('/auth');
+          return;
+        }
+        navigate('/auth');
+        return;
+      }
+      
       const data = await response.json();
       setUser({...data.data, initials: data.data.firstName.charAt(0) + data.data.lastName.charAt(0)});
       setLoading(false);

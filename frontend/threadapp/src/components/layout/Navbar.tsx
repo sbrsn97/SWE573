@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaHome, FaSearch, FaCog, FaSignOutAlt } from 'react-icons/fa';
-import React from 'react';
 import { API_ENDPOINTS } from '../../config/config';
 
 interface User {
@@ -35,20 +34,39 @@ const Navbar = ({ user }: NavbarProps) => {
 
   const handleLogout = async () => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/auth');
+        return;
+      }
+
       const response = await fetch(API_ENDPOINTS.auth.logout, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
-      if (response.ok) {
-        localStorage.removeItem('token');
-        navigate('/auth');
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 401 && errorData.code === 'TOKEN_EXPIRED') {
+          // Token is already expired, just clear it and redirect
+          localStorage.removeItem('token');
+          navigate('/auth');
+          return;
+        }
+        throw new Error('Logout failed');
       }
+
+      // Clear token and redirect on successful logout
+      localStorage.removeItem('token');
+      navigate('/auth');
     } catch (error) {
       console.error('Logout failed:', error);
+      // Even if the server request fails, we should still clear the token and redirect
+      localStorage.removeItem('token');
+      navigate('/auth');
     }
   };
 

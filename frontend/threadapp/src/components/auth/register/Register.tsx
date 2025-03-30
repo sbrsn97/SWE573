@@ -1,13 +1,15 @@
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import "./Register.css"
 import isEmail from 'validator/lib/isEmail';
-import { useNavigate } from 'react-router';
 import { API_ENDPOINTS } from '../../../config/config';
 
-function Register() {
-  const navigate = useNavigate();
+interface RegisterProps {
+  onRegisterSuccess: () => void;
+}
+
+function Register({ onRegisterSuccess }: RegisterProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -15,20 +17,37 @@ function Register() {
   const [email, setEmail] = useState('');
   const [emailInvalid, setEmailInvalid] = useState(false);
   const [error, setError] = useState('');
+  const [showError, setShowError] = useState(false);
+
+  const clearForm = () => {
+    setUsername('');
+    setPassword('');
+    setFirstName('');
+    setLastName('');
+    setEmail('');
+    setEmailInvalid(false);
+    setError('');
+    setShowError(false);
+  };
 
   const handleRegister = async () => {
     // Reset error state
     setError('');
+    setShowError(false);
 
     // Validate all fields are filled
     if(username === "" || password === "" || firstName === "" || lastName === "" || email === "") {
       setError('All fields are required');
+      setShowError(true);
+      setTimeout(() => setShowError(false), 1000);
       return;
     }
 
     // Validate email format
     if(!isEmail(email)) {
       setError('Please enter a valid email address');
+      setShowError(true);
+      setTimeout(() => setShowError(false), 1000);
       return;
     }
 
@@ -51,12 +70,17 @@ function Register() {
       const data = await response.json();
       
       if(data.success) {
-        navigate("/");
+        clearForm();
+        onRegisterSuccess();
       } else {
         setError(data.message || 'Registration failed');
+        setShowError(true);
+        setTimeout(() => setShowError(false), 1000);
       }
     } catch (err) {
       setError('Failed to connect to the server');
+      setShowError(true);
+      setTimeout(() => setShowError(false), 1000);
       console.error('Registration error:', err);
     }
   }
@@ -66,15 +90,43 @@ function Register() {
   }, [email]);
 
   return (
-    <div className='flex flex-col gap-2 w-[500px] h-[300px]'>
-      {error && <div className="text-red-500 mb-2">{error}</div>}
-      <InputText value={username} onChange={(e) => setUsername(e.target.value)} placeholder='Username'/>
+    <div className='register-container'>
+      {error && <div className="error-message">{error}</div>}
+      <InputText 
+        value={username} 
+        onChange={(e) => setUsername(e.target.value)} 
+        placeholder='Username'
+        className={showError ? 'shake error-border' : ''}
+      />
       <div className='flex gap-2'>
-        <InputText value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder='First Name' className='fit-this'/>
-        <InputText value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder='Last Name' className='fit-this'/>
+        <InputText 
+          value={firstName} 
+          onChange={(e) => setFirstName(e.target.value)} 
+          placeholder='First Name' 
+          className={`fit-this ${showError ? 'shake error-border' : ''}`}
+        />
+        <InputText 
+          value={lastName} 
+          onChange={(e) => setLastName(e.target.value)} 
+          placeholder='Last Name' 
+          className={`fit-this ${showError ? 'shake error-border' : ''}`}
+        />
       </div>
-      <InputText value={email} invalid={emailInvalid} onChange={(e) => setEmail(e.target.value)} placeholder='Email' keyfilter="email"/>
-      <InputText value={password} onChange={(e) => setPassword(e.target.value)} placeholder='Password' type='password'/>
+      <InputText 
+        value={email} 
+        invalid={emailInvalid} 
+        onChange={(e) => setEmail(e.target.value)} 
+        placeholder='Email' 
+        keyfilter="email"
+        className={showError ? 'shake error-border' : ''}
+      />
+      <InputText 
+        value={password} 
+        onChange={(e) => setPassword(e.target.value)} 
+        placeholder='Password' 
+        type='password'
+        className={showError ? 'shake error-border' : ''}
+      />
       <Button label='Register' onClick={handleRegister} />
     </div>
   )

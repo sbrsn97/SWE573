@@ -10,10 +10,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.HashMap;
 import java.util.Map;
 
+@Tag(name = "Votes", description = "APIs for managing thread and comment votes")
 @RestController
 @CrossOrigin(origins = "*")
 @RequestMapping("/api/votes")
@@ -22,11 +26,20 @@ public class VoteController {
     @Autowired
     private VoteService voteService;
 
+    @Operation(summary = "Get vote by ID", description = "Retrieves a specific vote by its ID")
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<VoteDTO>> getVote(
+            @Parameter(description = "ID of the vote to retrieve", required = true) @PathVariable Long id) {
+        Vote vote = voteService.getVote(id);
+        return ResponseEntity.ok(ApiResponse.success(convertToDTO(vote)));
+    }
+
+    @Operation(summary = "Vote on thread", description = "Creates or updates a vote on a thread")
     @PostMapping("/thread/{threadId}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> voteThread(
-            @PathVariable Long threadId,
-            @RequestParam boolean isUpvote,
-            Authentication authentication) {
+            @Parameter(description = "ID of the thread to vote on", required = true) @PathVariable Long threadId,
+            @Parameter(description = "Whether this is an upvote (true) or downvote (false)", required = true) @RequestParam boolean isUpvote,
+            @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
         Long userId = ((User) authentication.getPrincipal()).getId();
         VoteType voteType = isUpvote ? VoteType.UPVOTE : VoteType.DOWNVOTE;
         
@@ -42,11 +55,12 @@ public class VoteController {
         return ResponseEntity.ok(ApiResponse.success("Vote recorded successfully", response));
     }
 
+    @Operation(summary = "Vote on comment", description = "Creates or updates a vote on a comment")
     @PostMapping("/comment/{commentId}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> voteComment(
-            @PathVariable Long commentId,
-            @RequestParam boolean isUpvote,
-            Authentication authentication) {
+            @Parameter(description = "ID of the comment to vote on", required = true) @PathVariable Long commentId,
+            @Parameter(description = "Whether this is an upvote (true) or downvote (false)", required = true) @RequestParam boolean isUpvote,
+            @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
         Long userId = ((User) authentication.getPrincipal()).getId();
         VoteType voteType = isUpvote ? VoteType.UPVOTE : VoteType.DOWNVOTE;
         
@@ -62,10 +76,11 @@ public class VoteController {
         return ResponseEntity.ok(ApiResponse.success("Vote recorded successfully", response));
     }
 
+    @Operation(summary = "Remove thread vote", description = "Removes a user's vote from a thread")
     @DeleteMapping("/thread/{threadId}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> removeThreadVote(
-            @PathVariable Long threadId,
-            Authentication authentication) {
+            @Parameter(description = "ID of the thread to remove vote from", required = true) @PathVariable Long threadId,
+            @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
         Long userId = ((User) authentication.getPrincipal()).getId();
         
         voteService.deleteVoteByUserAndThread(userId, threadId);
@@ -77,10 +92,11 @@ public class VoteController {
         return ResponseEntity.ok(ApiResponse.success("Vote removed successfully", response));
     }
 
+    @Operation(summary = "Remove comment vote", description = "Removes a user's vote from a comment")
     @DeleteMapping("/comment/{commentId}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> removeCommentVote(
-            @PathVariable Long commentId,
-            Authentication authentication) {
+            @Parameter(description = "ID of the comment to remove vote from", required = true) @PathVariable Long commentId,
+            @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
         Long userId = ((User) authentication.getPrincipal()).getId();
         
         voteService.deleteVoteByUserAndComment(userId, commentId);
@@ -92,10 +108,11 @@ public class VoteController {
         return ResponseEntity.ok(ApiResponse.success("Vote removed successfully", response));
     }
 
+    @Operation(summary = "Get thread vote status", description = "Retrieves the current user's vote status on a thread")
     @GetMapping("/thread/{threadId}/status")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getThreadVoteStatus(
-            @PathVariable Long threadId,
-            Authentication authentication) {
+            @Parameter(description = "ID of the thread to check vote status", required = true) @PathVariable Long threadId,
+            @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
         Long userId = ((User) authentication.getPrincipal()).getId();
         
         boolean hasVoted = voteService.hasUserVotedOnThread(userId, threadId);
@@ -110,10 +127,11 @@ public class VoteController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @Operation(summary = "Get comment vote status", description = "Retrieves the current user's vote status on a comment")
     @GetMapping("/comment/{commentId}/status")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getCommentVoteStatus(
-            @PathVariable Long commentId,
-            Authentication authentication) {
+            @Parameter(description = "ID of the comment to check vote status", required = true) @PathVariable Long commentId,
+            @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
         Long userId = ((User) authentication.getPrincipal()).getId();
         
         boolean hasVoted = voteService.hasUserVotedOnComment(userId, commentId);
@@ -131,11 +149,10 @@ public class VoteController {
     private VoteDTO convertToDTO(Vote vote) {
         VoteDTO dto = new VoteDTO();
         dto.setId(vote.getId());
-        dto.setType(vote.getType());
         dto.setUserId(vote.getUser().getId());
         dto.setThreadId(vote.getThread() != null ? vote.getThread().getId() : null);
         dto.setCommentId(vote.getComment() != null ? vote.getComment().getId() : null);
-        dto.setCreatedAt(vote.getCreatedAt());
+        dto.setType(vote.getType());
         return dto;
     }
 } 

@@ -3,6 +3,7 @@ package com.swe573.services;
 import com.swe573.dto.ThreadDTO;
 import com.swe573.models.Thread;
 import java.util.List;
+import java.util.Optional;
 
 public interface ThreadService {
     Thread createThread(ThreadDTO threadDTO);
@@ -18,4 +19,7 @@ public interface ThreadService {
     Thread unfollowThread(Long threadId, Long userId);
     Thread voteThread(Long threadId, Long userId, boolean isUpvote);
     Thread removeVote(Long threadId, Long userId);
+    Optional<Thread> findById(Long id);
+    Thread save(Thread thread);
+    void delete(Thread thread);
 } 

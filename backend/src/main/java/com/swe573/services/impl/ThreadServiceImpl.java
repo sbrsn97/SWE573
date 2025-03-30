@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -25,6 +26,21 @@ public class ThreadServiceImpl implements ThreadService {
 
     @Autowired
     private ThreadRepository threadRepository;
+
+    @Override
+    public Thread save(Thread thread) {
+        return threadRepository.save(thread);
+    }
+
+    @Override 
+    public Optional<Thread> findById(Long id) {
+        return threadRepository.findById(id);
+    }
+
+    @Override
+    public void delete(Thread thread) {
+        threadRepository.delete(thread);
+    }
 
     @Autowired
     private UserRepository userRepository;
@@ -159,6 +175,7 @@ public class ThreadServiceImpl implements ThreadService {
     public Thread voteThread(Long threadId, Long userId, boolean isUpvote) {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
+        @SuppressWarnings("unused")
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
         
@@ -174,10 +191,8 @@ public class ThreadServiceImpl implements ThreadService {
     public Thread removeVote(Long threadId, Long userId) {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
-        
+            
         voteService.deleteVoteByUserAndThread(userId, threadId);
-        
-        return threadRepository.findById(threadId)
-            .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
+        return thread;
     }
 } 

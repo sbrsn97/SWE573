@@ -8,6 +8,7 @@ import com.swe573.repositories.NotificationRepository;
 import com.swe573.repositories.NotificationPreferenceRepository;
 import com.swe573.repositories.UserRepository;
 import com.swe573.services.NotificationService;
+import com.swe573.dto.NotificationPreferenceUpdateDTO;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -318,5 +319,26 @@ public class NotificationServiceImpl implements NotificationService {
         
         preference.setEnabled(false);
         preferenceRepository.save(preference);
+    }
+
+    @Override
+    @Transactional
+    public NotificationPreference updatePreference(Long preferenceId, NotificationPreferenceUpdateDTO updateDTO) {
+        NotificationPreference preference = preferenceRepository.findById(preferenceId)
+            .orElseThrow(() -> new EntityNotFoundException("Notification preference not found"));
+
+        // Update the preference fields
+        preference.setType(updateDTO.getType());
+        preference.setEnabled(updateDTO.isEnabled());
+        preference.setReferenceId(updateDTO.getReferenceId());
+        preference.setReferenceType(updateDTO.getReferenceType());
+        preference.setGlobal(updateDTO.isGlobal());
+
+        // Clear the in-memory cache for this user's preferences
+        if (preference.getUser() != null) {
+            notificationPreferences.remove(preference.getUser().getId());
+        }
+
+        return preferenceRepository.save(preference);
     }
 } 

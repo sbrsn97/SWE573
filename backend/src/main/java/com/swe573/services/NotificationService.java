@@ -3,6 +3,7 @@ package com.swe573.services;
 import com.swe573.models.Notification;
 import com.swe573.models.NotificationPreference;
 import com.swe573.models.enums.NotificationType;
+import com.swe573.dto.NotificationPreferenceUpdateDTO;
 import java.util.List;
 
 public interface NotificationService {
@@ -46,4 +47,7 @@ public interface NotificationService {
     List<NotificationPreference> getUserSpecificPreferences(Long userId);
     void deletePreference(Long preferenceId);
     void deleteAllPreferences(Long userId);
+    
+    // Update preference
+    NotificationPreference updatePreference(Long preferenceId, NotificationPreferenceUpdateDTO updateDTO);
 } 

@@ -6,6 +6,7 @@ public enum NotificationType {
     THREAD_DOWNVOTE,
     COMMENT_UPVOTE,
     COMMENT_DOWNVOTE,
+    NEW_COMMENT,
     VOTE_MILESTONE,
     VOTE_REMOVED,
     

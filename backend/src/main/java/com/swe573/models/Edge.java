@@ -1,34 +1,54 @@
 package com.swe573.models;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
-@NoArgsConstructor
 @Entity
-@Table(name = "edges")
-@EqualsAndHashCode(callSuper = true)
+@Table(name = "edges", indexes = {
+    @Index(name = "idx_edge_source", columnList = "source_node_id"),
+    @Index(name = "idx_edge_target", columnList = "target_node_id"),
+    @Index(name = "idx_edge_visibility", columnList = "is_active")
+})
+@Getter
+@Setter
 public class Edge extends BaseEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
-    @NotBlank
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_node_id")
+    private Node sourceNode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_node_id")
+    private Node targetNode;
+
+    @Column
     private String label;
 
-    @NotNull
-    @Column(name = "source_node_id")
-    private Long sourceNodeId;
+    @Column(nullable = false)
+    private String type = "default";
 
-    @NotNull
-    @Column(name = "target_node_id")
-    private Long targetNodeId;
+    @Column(nullable = false)
+    private Integer weight = 1;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "thread_id")
     private Thread thread;
+
+    @PrePersist
+    @PreUpdate
+    public void validate() {
+        if (sourceNode == null || targetNode == null) {
+            throw new IllegalStateException("Edge must connect two nodes");
+        }
+        if (sourceNode.equals(targetNode)) {
+            throw new IllegalStateException("Edge cannot connect a node to itself");
+        }
+        if (!sourceNode.getThread().equals(targetNode.getThread())) {
+            throw new IllegalStateException("Edge cannot connect nodes from different threads");
+        }
+        if (thread == null) {
+            thread = sourceNode.getThread();
+        }
+    }
 } 

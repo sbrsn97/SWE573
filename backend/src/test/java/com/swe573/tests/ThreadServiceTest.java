@@ -177,6 +177,31 @@ public class ThreadServiceTest {
     }
 
     @Test
+    void removeVote_Success() {
+        // Arrange
+        when(threadRepository.findById(1L)).thenReturn(Optional.of(testThread));
+        doNothing().when(voteService).deleteVoteByUserAndThread(1L, 1L);
+
+        // Act
+        Thread result = threadService.removeVote(1L, 1L);
+
+        // Assert
+        assertNotNull(result);
+        verify(voteService).deleteVoteByUserAndThread(1L, 1L);
+        verify(threadRepository).findById(1L);
+    }
+
+    @Test
+    void removeVote_ThreadNotFound() {
+        // Arrange
+        when(threadRepository.findById(1L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(EntityNotFoundException.class, () -> threadService.removeVote(1L, 1L));
+        verify(voteService, never()).deleteVoteByUserAndThread(any(), any());
+    }
+
+    @Test
     void followThread_Success() {
         // Arrange
         when(threadRepository.findById(1L)).thenReturn(Optional.of(testThread));

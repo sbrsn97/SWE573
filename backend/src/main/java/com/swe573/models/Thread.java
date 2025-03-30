@@ -17,10 +17,6 @@ import java.util.Set;
 @Table(name = "threads")
 @EqualsAndHashCode(callSuper = true)
 public class Thread extends BaseEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @NotBlank
     private String title;
 
@@ -90,10 +86,34 @@ public class Thread extends BaseEntity {
         return upvoteCount - downvoteCount;
     }
 
+    public void softDeleteByUser() {
+        softDelete(DeactivationRole.USER);
+    }
+
+    public void softDeleteByAdmin() {
+        softDelete(DeactivationRole.ADMIN);
+    }
+
+    public void reactivate() {
+        setActive(true);
+        setDeactivatedByRole(null);
+    }
+
+    @Override
+    public void hardDelete() {
+        // Clean up associations
+        votes.clear();
+        comments.clear();
+        nodes.clear();
+        edges.clear();
+        tags.clear();
+        threadFollowers.clear();
+    }
+
     @Override
     public String toString() {
         return "Thread{" +
-                "id=" + id +
+                "id=" + getId() +
                 ", title='" + title + '\'' +
                 ", description='" + description + '\'' +
                 ", authorId=" + (author != null ? author.getId() : null) +

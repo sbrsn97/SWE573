@@ -1,6 +1,5 @@
 package com.swe573.services;
 
-import com.swe573.dto.UserDTO;
 import com.swe573.dto.UserRegistrationDTO;
 import com.swe573.dto.UserLoginDTO;
 import com.swe573.dto.UserUpdateDTO;
@@ -8,6 +7,7 @@ import com.swe573.dto.PasswordChangeDTO;
 import com.swe573.models.User;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface UserService {
     User registerUser(UserRegistrationDTO registrationDTO);
@@ -21,4 +21,7 @@ public interface UserService {
     void unfollowUser(Long followerId, Long followedId);
     User getCurrentUser();
     long userCount();
+    Optional<User> findById(Long id);
+    User save(User user);
+    void delete(User user);
 } 

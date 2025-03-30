@@ -2,7 +2,6 @@ package com.swe573.services.impl;
 
 import com.swe573.models.Thread;
 import com.swe573.models.Comment;
-import com.swe573.models.Vote;
 import com.swe573.models.enums.VoteType;
 import com.swe573.repositories.ThreadRepository;
 import com.swe573.repositories.CommentRepository;

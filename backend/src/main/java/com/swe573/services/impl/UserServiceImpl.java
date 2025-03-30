@@ -1,6 +1,5 @@
 package com.swe573.services.impl;
 
-import com.swe573.dto.UserDTO;
 import com.swe573.dto.UserRegistrationDTO;
 import com.swe573.dto.UserLoginDTO;
 import com.swe573.dto.UserUpdateDTO;
@@ -24,12 +23,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Override
+    public User save(User user) {
+        return userRepository.save(user);
+    }
+
+    @Override 
+    public Optional<User> findById(Long id) {
+        return userRepository.findById(id);
+    }
+
+    @Override
+    public void delete(User user) {
+        userRepository.delete(user);
+    }
 
     @Autowired
     private PasswordEncoder passwordEncoder;

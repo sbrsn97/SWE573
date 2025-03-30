@@ -2,7 +2,6 @@ package com.swe573.models;
 
 import com.swe573.models.enums.VoteType;
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.Getter;
@@ -18,10 +17,6 @@ import lombok.Setter;
 })
 @EqualsAndHashCode(callSuper = true)
 public class Vote extends BaseEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private VoteType type;
@@ -49,7 +44,7 @@ public class Vote extends BaseEntity {
     @Override
     public String toString() {
         return "Vote{" +
-                "id=" + id +
+                "id=" + getId() +
                 ", type=" + type +
                 ", userId=" + (user != null ? user.getId() : null) +
                 ", threadId=" + (thread != null ? thread.getId() : null) +

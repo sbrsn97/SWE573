@@ -14,10 +14,6 @@ import java.util.Set;
 @Table(name = "tags")
 @EqualsAndHashCode(callSuper = true)
 public class Tag extends BaseEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     private String wikidataEntityId;
 
     @NotBlank
@@ -29,4 +25,23 @@ public class Tag extends BaseEntity {
 
     @ManyToMany(mappedBy = "tags")
     private Set<Thread> threads = new HashSet<>();
+
+    public void softDeleteByUser() {
+        softDelete(DeactivationRole.USER);
+    }
+
+    public void softDeleteByAdmin() {
+        softDelete(DeactivationRole.ADMIN);
+    }
+
+    public void reactivate() {
+        setActive(true);
+        setDeactivatedByRole(null);
+    }
+
+    @Override
+    public void hardDelete() {
+        // Clean up associations
+        threads.clear();
+    }
 } 

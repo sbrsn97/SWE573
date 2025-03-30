@@ -19,10 +19,6 @@ import lombok.Setter;
 @Table(name = "comments")
 @EqualsAndHashCode(callSuper = true)
 public class Comment extends BaseEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @Column(columnDefinition = "TEXT")
     @NotBlank
     private String content;
@@ -76,10 +72,30 @@ public class Comment extends BaseEntity {
         return upvoteCount - downvoteCount;
     }
 
+    public void softDeleteByUser() {
+        softDelete(DeactivationRole.USER);
+    }
+
+    public void softDeleteByAdmin() {
+        softDelete(DeactivationRole.ADMIN);
+    }
+
+    public void reactivate() {
+        setActive(true);
+        setDeactivatedByRole(null);
+    }
+
+    @Override
+    public void hardDelete() {
+        // Clean up associations
+        votes.clear();
+        referencedNodes.clear();
+    }
+
     @Override
     public String toString() {
         return "Comment{" +
-                "id=" + id +
+                "id=" + getId() +
                 ", content='" + content + '\'' +
                 ", authorId=" + (author != null ? author.getId() : null) +
                 ", threadId=" + (thread != null ? thread.getId() : null) +

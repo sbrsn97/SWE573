@@ -20,12 +20,8 @@ import java.util.Set;
 @NoArgsConstructor
 @Entity
 @Table(name = "users")
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = {"followers", "following", "tags", "authoredThreads", "followedThreads", "notificationPreferences"})
 public class User extends BaseEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @NotBlank
     @Column(unique = true)
     private String username;
@@ -95,4 +91,33 @@ public class User extends BaseEntity {
     // Threads that this user follows
     @ManyToMany(mappedBy = "threadFollowers")
     private Set<Thread> followedThreads = new HashSet<>();
+
+    public void deactivateAccount() {
+        softDelete(DeactivationRole.USER);
+    }
+
+    public void deactivateByAdmin() {
+        softDelete(DeactivationRole.ADMIN);
+    }
+
+    public void reactivateAccount() {
+        setActive(true);
+        setDeactivatedByRole(null);
+    }
+
+    @Override
+    public void hardDelete() {
+        // Clean up followers/following associations
+        followers.clear();
+        following.clear();
+        
+        // Clean up tags
+        //tags.clear();
+        
+        // Clean up followed threads
+        followedThreads.clear();
+        
+        // Clean up notification preferences
+        notificationPreferences.clear();
+    }
 } 

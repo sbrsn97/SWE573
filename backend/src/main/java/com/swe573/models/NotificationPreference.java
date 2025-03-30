@@ -12,10 +12,6 @@ import lombok.NoArgsConstructor;
 @Table(name = "notification_preferences")
 @EqualsAndHashCode(callSuper = true)
 public class NotificationPreference extends BaseEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -35,4 +31,22 @@ public class NotificationPreference extends BaseEntity {
 
     @Column(name = "is_global")
     private boolean isGlobal = false;
+
+    public void softDeleteByUser() {
+        softDelete(DeactivationRole.USER);
+    }
+
+    public void softDeleteByAdmin() {
+        softDelete(DeactivationRole.ADMIN);
+    }
+
+    public void reactivate() {
+        setActive(true);
+        setDeactivatedByRole(null);
+    }
+
+    @Override
+    public void hardDelete() {
+        // No cleanup needed as this is a simple entity
+    }
 } 

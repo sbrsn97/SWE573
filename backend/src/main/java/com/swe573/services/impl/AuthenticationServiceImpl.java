@@ -37,7 +37,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Override
     public String authenticate(String username, String password) {
         if (username == null || username.trim().isEmpty() || password == null || password.trim().isEmpty()) {
-            throw new IllegalArgumentException("Username and password cannot be empty");
+            return null;
         }
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -48,9 +48,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                 return jwtService.generateToken(userDetails);
             }
-            throw new RuntimeException("Authentication failed");
+            return null;
         } catch (Exception e) {
-            throw new RuntimeException("Authentication failed: " + e.getMessage());
+            return null;
         }
     }
 

@@ -43,6 +43,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/users/register").permitAll()
                 .requestMatchers("/api/users/login").permitAll()
                 .requestMatchers("/error").permitAll()
+                // Swagger UI v3 (OpenAPI)
+                .requestMatchers("/swagger-ui/**").permitAll()
+                .requestMatchers("/swagger-ui.html").permitAll()
+                .requestMatchers("/v3/api-docs/**").permitAll()
+                .requestMatchers("/swagger-resources/**").permitAll()
+                .requestMatchers("/webjars/**").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

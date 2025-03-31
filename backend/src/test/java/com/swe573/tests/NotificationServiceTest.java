@@ -1,4 +1,4 @@
-package com.swe573.services;
+package com.swe573.tests;
 
 import com.swe573.models.Notification;
 import com.swe573.models.NotificationPreference;

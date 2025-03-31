@@ -16,9 +16,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
 import com.swe573.exceptions.ResourceNotFoundException;
 import com.swe573.exceptions.UnauthorizedException;
+import com.swe573.services.ThreadPreviewService;
+import com.swe573.dto.ThreadPreviewDTO;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.HashSet;
 
 @Tag(name = "Threads", description = "APIs for managing discussion threads")
 @RestController
@@ -31,6 +34,9 @@ public class ThreadController {
 
     @Autowired
     private AuthenticationService authenticationService;
+
+    @Autowired
+    private ThreadPreviewService threadPreviewService;
 
     @Operation(summary = "Create thread", description = "Creates a new discussion thread")
     @PostMapping
@@ -196,6 +202,14 @@ public class ThreadController {
         return ResponseEntity.ok(ApiResponse.success("Vote removed successfully", convertToDTO(thread)));
     }
 
+    @GetMapping("/preview")
+    public ResponseEntity<ApiResponse<ThreadPreviewDTO>> previewThread(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String content) {
+        ThreadPreviewDTO preview = threadPreviewService.generatePreview(title, content);
+        return ResponseEntity.ok(ApiResponse.success(preview));
+    }
+
     private ThreadDTO convertToDTO(Thread thread) {
         ThreadDTO dto = new ThreadDTO();
         dto.setId(thread.getId());
@@ -206,12 +220,12 @@ public class ThreadController {
         dto.setUpdatedAt(thread.getUpdatedAt());
         dto.setUpvoteCount(thread.getUpvoteCount());
         dto.setDownvoteCount(thread.getDownvoteCount());
-        dto.setTags(thread.getTags().stream()
+        dto.setTags(thread.getTags() != null ? thread.getTags().stream()
                 .map(tag -> tag.getLabel())
-                .collect(Collectors.toSet()));
-        dto.setFollowerIds(thread.getThreadFollowers().stream()
+                .collect(Collectors.toSet()) : new HashSet<>());
+        dto.setFollowerIds(thread.getThreadFollowers() != null ? thread.getThreadFollowers().stream()
                 .map(user -> user.getId())
-                .collect(Collectors.toSet()));
+                .collect(Collectors.toSet()) : new HashSet<>());
         return dto;
     }
 } 

@@ -184,7 +184,20 @@ function Profile() {
                 <div className="flex-1 flex justify-between items-center">
                   <Calendar
                     value={editingField.value ? new Date(editingField.value) : null}
-                    onChange={(e) => setEditingField({ ...editingField, value: e.value?.toISOString() || '' })}
+                    onChange={(e) => {
+                      if (e.value) {
+                        // Create a new date with the selected year, month, and day
+                        const selectedDate = new Date(e.value);
+                        const year = selectedDate.getFullYear();
+                        const month = selectedDate.getMonth();
+                        const day = selectedDate.getDate();
+                        // Format the date as YYYY-MM-DD to avoid timezone issues
+                        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                        setEditingField({ ...editingField, value: dateString });
+                      } else {
+                        setEditingField({ ...editingField, value: '' });
+                      }
+                    }}
                     dateFormat="dd.mm.yy"
                     showIcon
                     disabled={updating}

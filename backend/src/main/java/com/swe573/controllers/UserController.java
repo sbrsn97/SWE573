@@ -165,6 +165,17 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("User permanently deleted", null));
     }
 
+    @Operation(summary = "Search users", description = "Searches users by username, first name, or last name")
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<UserDTO>>> searchUsers(
+            @Parameter(description = "Search keyword", required = true) @RequestParam String keyword) {
+        List<User> users = userService.searchUsers(keyword.toLowerCase());
+        List<UserDTO> dtos = users.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(dtos));
+    }
+
     private UserDTO convertToDTO(User user) {
         UserDTO dto = new UserDTO();
         dto.setId(user.getId());

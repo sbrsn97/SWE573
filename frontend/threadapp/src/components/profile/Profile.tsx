@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router';
 import { Toast } from 'primereact/toast';
 import Navbar from '../layout/Navbar';
 import { API_ENDPOINTS } from '../../config/config';
+import MainLayout from '../layout/MainLayout';
 import 'primeicons/primeicons.css';
 
 interface User {
@@ -57,18 +58,16 @@ function Profile() {
     setEditingField({ name, value });
   };
 
-  const handleSave = async () => {
-    if (!editingField || !user) return;
+  const handleSave = async (user: User) => {
+    if (!editingField) return;
     
     setUpdating(true);
     try {
-      // Create update payload with the full user data and the updated field
       const updatePayload = {
         ...user,
         [editingField.name]: editingField.value
       };
 
-      // Remove any fields that shouldn't be sent to the backend
       delete updatePayload.initials;
       delete updatePayload.followers;
       delete updatePayload.following;
@@ -83,25 +82,11 @@ function Profile() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        if (response.status === 401 && errorData.code === 'TOKEN_EXPIRED') {
-          localStorage.removeItem('token');
-          navigate('/auth');
-          return;
-        }
-        throw new Error(errorData.message || 'Failed to update profile');
+        throw new Error('Failed to update profile');
       }
 
-      const data = await response.json();
+      const { data } = await response.json();
       
-      // Update the user state with the response data
-      if (data.data) {
-        setUser({
-          ...data.data,
-          initials: data.data.firstName.charAt(0) + data.data.lastName.charAt(0)
-        });
-      }
-
       toast.current?.show({
         severity: 'success',
         summary: 'Success',
@@ -163,7 +148,7 @@ function Profile() {
     return null;
   }
 
-  const renderEditableField = (label: string, name: EditableField['name'], value: string) => {
+  const renderEditableField = (label: string, name: EditableField['name'], value: string, user: User) => {
     const isEditing = editingField?.name === name;
     
     return (
@@ -186,12 +171,10 @@ function Profile() {
                     value={editingField.value ? new Date(editingField.value) : null}
                     onChange={(e) => {
                       if (e.value) {
-                        // Create a new date with the selected year, month, and day
                         const selectedDate = new Date(e.value);
                         const year = selectedDate.getFullYear();
                         const month = selectedDate.getMonth();
                         const day = selectedDate.getDate();
-                        // Format the date as YYYY-MM-DD to avoid timezone issues
                         const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                         setEditingField({ ...editingField, value: dateString });
                       } else {
@@ -208,7 +191,7 @@ function Profile() {
                       rounded 
                       outlined 
                       severity="success" 
-                      onClick={handleSave}
+                      onClick={() => handleSave(user)}
                       loading={updating}
                       disabled={updating}
                     />
@@ -237,7 +220,7 @@ function Profile() {
                     rounded 
                     outlined 
                     severity="success" 
-                    onClick={handleSave}
+                    onClick={() => handleSave(user)}
                     loading={updating}
                     disabled={updating}
                   />
@@ -273,77 +256,62 @@ function Profile() {
     );
   };
 
-  return (
-    <div className="min-h-screen bg-white">
+  const renderProfile = (user: User) => (
+    <div className="bg-white rounded-xl shadow-sm p-8">
       <Toast ref={toast} />
-      <Navbar user={user} />
-      <div className="flex justify-center items-center min-h-[calc(100vh-60px)] mt-[60px]">
-        <Card className="w-full max-w-2xl shadow-lg mx-4">
-          <div className="flex flex-col gap-6">
-            <div className="text-3xl font-bold text-gray-800 mb-4">Profile</div>
+      <div className="flex flex-col gap-6">
+        <div className="text-3xl font-bold text-gray-800 mb-4">Profile</div>
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center gap-8 mb-4">
+            <div className="w-[5rem] h-[5rem] flex items-center justify-center">
+              <Avatar label={user.initials} shape="circle" size="xlarge" />
+            </div>
             
-            {loading ? (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-8">
-                  <Skeleton shape="circle" size="5rem"></Skeleton>
-                  <Skeleton shape="rectangle" width="30%" height="2rem"></Skeleton>
-                </div>
-                
-                <div className="flex flex-col gap-2">
-                  <Skeleton shape="rectangle" width="50%" height="2rem"></Skeleton>
-                  <Skeleton shape="rectangle" width="50%" height="2rem"></Skeleton>
-                  <Skeleton shape="rectangle" width="50%" height="2rem"></Skeleton>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center gap-8 mb-4">
-                  <div className="w-[5rem] h-[5rem] flex items-center justify-center">
-                    <Avatar label={user.initials} shape="circle" size="xlarge" />
-                  </div>
-                  
-                  <div className="flex items-center h-[5rem]">
-                    <span className="text-xl font-bold text-gray-800">
-                      {user.firstName} {user.lastName}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col">
-                  <div className="py-2 flex items-center gap-4">
-                    <span className="font-semibold text-gray-700 min-w-[120px]">Username:</span>
-                    <span className="text-gray-800">{user.username}</span>
-                  </div>
-                  <div className="py-2 flex items-center gap-4">
-                    <span className="font-semibold text-gray-700 min-w-[120px]">Email:</span>
-                    <span className="text-gray-800">{user.email}</span>
-                  </div>
-                  {renderEditableField('Birth Date', 'birthDate', user.birthDate || '')}
-                  {renderEditableField('Bio', 'bio', user.bio || '')}
-                  {renderEditableField('Location', 'location', user.location || '')}
-                  {renderEditableField('Profession', 'profession', user.profession || '')}
-                  <div className="py-2 flex items-center gap-4">
-                    <span className="font-semibold text-gray-700 min-w-[120px]">Following:</span>
-                    <span className="text-gray-800">{user.following?.length || 0}</span>
-                  </div>
-                  <div className="py-2 flex items-center gap-4">
-                    <span className="font-semibold text-gray-700 min-w-[120px]">Followers:</span>
-                    <span className="text-gray-800">{user.followers?.length || 0}</span>
-                  </div>
-                  {user.createdAt && (
-                    <div className="py-2 flex items-center gap-4">
-                      <span className="font-semibold text-gray-700 min-w-[120px]">Joined:</span>
-                      <span className="text-gray-800">{formatDate(user.createdAt)}</span>
-                    </div>
-                  )}
-                </div>
+            <div className="flex items-center h-[5rem]">
+              <span className="text-xl font-bold text-gray-800">
+                {user.firstName} {user.lastName}
+              </span>
+            </div>
+          </div>
+          
+          <div className="flex flex-col">
+            <div className="py-2 flex items-center gap-4">
+              <span className="font-semibold text-gray-700 min-w-[120px]">Username:</span>
+              <span className="text-gray-800">{user.username}</span>
+            </div>
+            <div className="py-2 flex items-center gap-4">
+              <span className="font-semibold text-gray-700 min-w-[120px]">Email:</span>
+              <span className="text-gray-800">{user.email}</span>
+            </div>
+            {renderEditableField('Birth Date', 'birthDate', user.birthDate || '', user)}
+            {renderEditableField('Bio', 'bio', user.bio || '', user)}
+            {renderEditableField('Location', 'location', user.location || '', user)}
+            {renderEditableField('Profession', 'profession', user.profession || '', user)}
+            <div className="py-2 flex items-center gap-4">
+              <span className="font-semibold text-gray-700 min-w-[120px]">Following:</span>
+              <span className="text-gray-800">{user.following?.length || 0}</span>
+            </div>
+            <div className="py-2 flex items-center gap-4">
+              <span className="font-semibold text-gray-700 min-w-[120px]">Followers:</span>
+              <span className="text-gray-800">{user.followers?.length || 0}</span>
+            </div>
+            {user.createdAt && (
+              <div className="py-2 flex items-center gap-4">
+                <span className="font-semibold text-gray-700 min-w-[120px]">Joined:</span>
+                <span className="text-gray-800">{formatDate(user.createdAt)}</span>
               </div>
             )}
           </div>
-        </Card>
+        </div>
       </div>
     </div>
-  )
+  );
+
+  return (
+    <MainLayout>
+      {(user) => renderProfile(user)}
+    </MainLayout>
+  );
 }
 
 export default Profile

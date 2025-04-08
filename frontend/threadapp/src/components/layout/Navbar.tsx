@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaHome, FaSearch, FaCog, FaSignOutAlt } from 'react-icons/fa';
 import { API_ENDPOINTS } from '../../config/config';
+import SearchResults from './SearchResults';
 
 interface User {
   username: string;
@@ -16,13 +17,19 @@ interface NavbarProps {
 
 const Navbar = ({ user }: NavbarProps) => {
   const [showSettings, setShowSettings] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowSettings(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearchResults(false);
       }
     };
 
@@ -88,15 +95,27 @@ const Navbar = ({ user }: NavbarProps) => {
         </Link>
       </div>
 
-      <div className="flex-1 max-w-[600px] mx-8">
+      <div className="flex-1 max-w-[600px] mx-8 relative" ref={searchRef}>
         <div className="flex items-center bg-gray-100 rounded-full px-4 py-2">
           <FaSearch className="text-gray-500 mr-2" />
           <input
             type="text"
-            placeholder="Search"
+            placeholder="Search threads and users..."
             className="w-full bg-transparent border-none outline-none text-gray-800 placeholder-gray-500"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowSearchResults(true);
+            }}
+            onFocus={() => setShowSearchResults(true)}
           />
         </div>
+        {showSearchResults && searchQuery && (
+          <SearchResults
+            query={searchQuery}
+            onClose={() => setShowSearchResults(false)}
+          />
+        )}
       </div>
 
       <div className="flex-none flex items-center gap-3" ref={menuRef}>

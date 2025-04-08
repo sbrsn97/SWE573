@@ -174,6 +174,11 @@ public class UserServiceImpl implements UserService {
         return userRepository.count();
     }
 
+    @Override
+    public List<User> searchUsers(String keyword) {
+        return userRepository.searchUsers(keyword);
+    }
+
     private void validateUniqueConstraints(UserRegistrationDTO registrationDTO) {
         if (userRepository.findByUsername(registrationDTO.getUsername()).isPresent()) {
             throw new DuplicateResourceException("Username already exists");

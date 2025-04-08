@@ -7,6 +7,7 @@ import { PrimeReactProvider } from 'primereact/api'
 import Tailwind from "primereact/passthrough/tailwind";
 import Profile from './components/profile/Profile.tsx'
 import Home from './components/home/Home.tsx'
+import ThreadDetail from './components/threads/ThreadDetail.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <BrowserRouter>
@@ -16,10 +17,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/home" element={<Home />} />
           <Route path="/auth" element={<AuthLayout />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/threads/:id" element={<ThreadDetail />} />
         </Routes>
       </StrictMode>
     </PrimeReactProvider>
-    
   </BrowserRouter>
-  
 )

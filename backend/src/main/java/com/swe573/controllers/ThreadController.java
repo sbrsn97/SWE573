@@ -90,7 +90,7 @@ public class ThreadController {
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<ThreadDTO>>> searchThreads(
             @Parameter(description = "Search keyword", required = true) @RequestParam String keyword) {
-        List<Thread> threads = threadService.searchThreads(keyword);
+        List<Thread> threads = threadService.searchThreads(keyword.toLowerCase());
         List<ThreadDTO> dtos = threads.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());

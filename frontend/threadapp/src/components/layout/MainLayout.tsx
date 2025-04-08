@@ -1,0 +1,88 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Navbar from './Navbar';
+import Sidebar from './Sidebar';
+import { API_ENDPOINTS } from '../../config/config';
+
+export interface User {
+  id: number;
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  role: string;
+  initials?: string;
+  bio?: string;
+  location?: string;
+  profession?: string;
+  birthDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  followers?: any[];
+  following?: any[];
+}
+
+interface MainLayoutProps {
+  children: (user: User) => React.ReactNode;
+}
+
+function MainLayout({ children }: MainLayoutProps) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchUser = async () => {
+      try {
+        const response = await fetch(API_ENDPOINTS.users.me, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user data');
+        }
+
+        const { data } = await response.json();
+        setUser(data);
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        localStorage.removeItem('token');
+        navigate('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [navigate]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar user={user} />
+      <div className="flex pt-16">
+        <Sidebar />
+        <main className="flex-1 p-8 ml-64">
+          {children(user)}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default MainLayout; 

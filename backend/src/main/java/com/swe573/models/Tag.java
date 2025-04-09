@@ -23,8 +23,8 @@ public class Tag extends BaseEntity {
 
     private String colorCodeString;
 
-    @ManyToMany(mappedBy = "tags")
-    private Set<Thread> threads = new HashSet<>();
+    //@ManyToMany(mappedBy = "tags")
+    //private Set<Thread> threads = new HashSet<>();
 
     public void softDeleteByUser() {
         softDelete(DeactivationRole.USER);
@@ -39,9 +39,9 @@ public class Tag extends BaseEntity {
         setDeactivatedByRole(null);
     }
 
-    @Override
-    public void hardDelete() {
+    //@Override
+    //public void hardDelete() {
         // Clean up associations
-        threads.clear();
-    }
+    //    threads.clear();
+    //}
 } 

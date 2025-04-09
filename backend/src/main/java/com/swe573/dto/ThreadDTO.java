@@ -26,8 +26,8 @@ public class ThreadDTO {
     @Schema(description = "ID of the thread author")
     private Long authorId;
     
-    @Schema(description = "Set of tag labels associated with the thread")
-    private Set<String> tags;
+    @Schema(description = "Set of tags associated with the thread")
+    private Set<TagDTO> tags;
     
     @Schema(description = "Set of user IDs following this thread")
     private Set<Long> followerIds;

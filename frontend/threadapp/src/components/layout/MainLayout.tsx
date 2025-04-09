@@ -34,7 +34,7 @@ function MainLayout({ children }: MainLayoutProps) {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login');
+      navigate('/auth');
       return;
     }
 
@@ -55,7 +55,7 @@ function MainLayout({ children }: MainLayoutProps) {
       } catch (error) {
         console.error('Error fetching user:', error);
         localStorage.removeItem('token');
-        navigate('/login');
+        navigate('/auth');
       } finally {
         setLoading(false);
       }

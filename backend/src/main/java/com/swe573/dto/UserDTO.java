@@ -3,6 +3,7 @@ package com.swe573.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Set;
 
 import com.swe573.models.enums.NotificationType;
 import com.swe573.models.enums.Role;
@@ -51,4 +52,7 @@ public class UserDTO {
     
     @Schema(description = "User's notification preferences")
     private Map<NotificationType, Boolean> notificationPreferences;
+
+    @Schema(description = "Set of tags associated with the user")
+    private Set<TagDTO> tags;
 } 

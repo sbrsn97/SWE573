@@ -58,8 +58,10 @@ public class UserServiceImpl implements UserService {
             adminDTO.setFirstName("Admin");
             adminDTO.setLastName("Admin");
             adminDTO.setEmail("admin@admin.com");
-            registerUser(adminDTO);
-            System.out.println("Admin user created");
+            User admin = registerUser(adminDTO);
+            admin.setRole(Role.ADMIN);
+            userRepository.save(admin);
+            System.out.println("Admin user created with ADMIN role");
             return;
         }
         System.out.println("Admin user already exists");

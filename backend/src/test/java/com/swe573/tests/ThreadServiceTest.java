@@ -11,6 +11,7 @@ import com.swe573.repositories.UserRepository;
 import com.swe573.services.impl.ThreadServiceImpl;
 import com.swe573.services.VoteService;
 import com.swe573.dto.ThreadDTO;
+import com.swe573.dto.TagDTO;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,9 @@ public class ThreadServiceTest {
         testThreadDTO.setTitle("Test Thread");
         testThreadDTO.setDescription("Test Description");
         testThreadDTO.setAuthorId(1L);
-        testThreadDTO.setTags(new HashSet<>(Collections.singletonList("testtag")));
+        TagDTO testTagDTO = new TagDTO();
+        testTagDTO.setLabel("testtag");
+        testThreadDTO.setTags(new HashSet<>(Collections.singletonList(testTagDTO)));
     }
 
     @Test

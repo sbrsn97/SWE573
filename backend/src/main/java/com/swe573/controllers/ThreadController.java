@@ -18,6 +18,7 @@ import com.swe573.exceptions.ResourceNotFoundException;
 import com.swe573.exceptions.UnauthorizedException;
 import com.swe573.services.ThreadPreviewService;
 import com.swe573.dto.ThreadPreviewDTO;
+import com.swe573.dto.TagDTO;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -221,7 +222,15 @@ public class ThreadController {
         dto.setUpvoteCount(thread.getUpvoteCount());
         dto.setDownvoteCount(thread.getDownvoteCount());
         dto.setTags(thread.getTags() != null ? thread.getTags().stream()
-                .map(tag -> tag.getLabel())
+                .map(tag -> {
+                    TagDTO tagDTO = new TagDTO();
+                    tagDTO.setId(tag.getId());
+                    tagDTO.setLabel(tag.getLabel());
+                    tagDTO.setDescription(tag.getDescription());
+                    tagDTO.setColorCodeString(tag.getColorCodeString());
+                    tagDTO.setWikidataEntityId(tag.getWikidataEntityId());
+                    return tagDTO;
+                })
                 .collect(Collectors.toSet()) : new HashSet<>());
         dto.setFollowerIds(thread.getThreadFollowers() != null ? thread.getThreadFollowers().stream()
                 .map(user -> user.getId())

@@ -4,12 +4,20 @@ import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
 import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown } from 'react-icons/fa';
 
+interface Tag {
+  id: number;
+  label: string;
+  description: string;
+  colorCodeString: string;
+  wikidataEntityId: string;
+}
+
 interface Thread {
   id: number;
   title: string;
   description: string | null;
   authorId: number;
-  tags: string[];
+  tags: Tag[];
   upvoteCount: number;
   downvoteCount: number;
   createdAt: string;
@@ -124,7 +132,34 @@ const ThreadDetail = () => {
     });
   };
 
-  const renderContent = (user: User | null) => {
+  const getContrastColor = (hexColor: string): string => {
+    const color = hexColor.replace('#', '');
+    const r = parseInt(color.substr(0, 2), 16);
+    const g = parseInt(color.substr(2, 2), 16);
+    const b = parseInt(color.substr(4, 2), 16);
+    
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#000000' : '#FFFFFF';
+  };
+
+  const renderTag = (tag: Tag) => {
+    const textColor = tag.colorCodeString ? getContrastColor(tag.colorCodeString) : 'text-gray-700';
+    return (
+      <span
+        key={tag.id}
+        className={`px-3 py-1 rounded-full text-sm border border-gray-200`}
+        style={{
+          backgroundColor: tag.colorCodeString || '#E5E7EB',
+          color: textColor
+        }}
+        title={tag.description || tag.label}
+      >
+        {tag.label}
+      </span>
+    );
+  };
+
+  const renderContent = (user: User) => {
     if (loading) {
       return (
         <div className="flex justify-center items-center h-[calc(100vh-80px)]">
@@ -166,14 +201,7 @@ const ThreadDetail = () => {
 
         {thread.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-8">
-            {thread.tags.map((tag, index) => (
-              <span
-                key={index}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-              >
-                {tag}
-              </span>
-            ))}
+            {thread.tags.map(renderTag)}
           </div>
         )}
 

@@ -13,7 +13,10 @@ public interface ThreadRepository extends JpaRepository<Thread, Long> {
     @Query("SELECT t FROM Thread t JOIN t.tags tag WHERE tag.label = :tagLabel")
     List<Thread> findByTagLabel(@Param("tagLabel") String tagLabel);
     
-    @Query("SELECT t FROM Thread t WHERE LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%'))")
+    @Query("SELECT DISTINCT t FROM Thread t LEFT JOIN t.tags tag WHERE " +
+           "LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+           "LOWER(tag.label) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Thread> searchThreads(@Param("keyword") String keyword);
 
     @Query("SELECT t FROM Thread t JOIN t.threadFollowers f WHERE f.id = :userId")

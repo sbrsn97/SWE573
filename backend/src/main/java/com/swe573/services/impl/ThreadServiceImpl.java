@@ -1,6 +1,7 @@
 package com.swe573.services.impl;
 
 import com.swe573.dto.ThreadDTO;
+import com.swe573.dto.TagDTO;
 import com.swe573.models.Thread;
 import com.swe573.models.Tag;
 import com.swe573.models.User;
@@ -65,11 +66,14 @@ public class ThreadServiceImpl implements ThreadService {
         // Handle tags
         Set<Tag> tags = new HashSet<>();
         if (threadDTO.getTags() != null) {
-            for (String tagLabel : threadDTO.getTags()) {
-                Tag tag = tagRepository.findByLabel(tagLabel)
+            for (TagDTO tagDTO : threadDTO.getTags()) {
+                Tag tag = tagRepository.findByLabel(tagDTO.getLabel())
                     .orElseGet(() -> {
                         Tag newTag = new Tag();
-                        newTag.setLabel(tagLabel);
+                        newTag.setLabel(tagDTO.getLabel());
+                        newTag.setDescription(tagDTO.getDescription());
+                        newTag.setColorCodeString(tagDTO.getColorCodeString());
+                        newTag.setWikidataEntityId(tagDTO.getWikidataEntityId());
                         return tagRepository.save(newTag);
                     });
                 tags.add(tag);
@@ -102,8 +106,16 @@ public class ThreadServiceImpl implements ThreadService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Thread> searchThreads(String keyword) {
-        return threadRepository.searchThreads(keyword);
+        List<Thread> threads = threadRepository.searchThreads(keyword);
+        // Initialize tags collection
+        var thread = threads.get(0);
+        for(var t : thread.getTags()) {
+            var tag = t;
+        }
+        //threads.forEach(thread -> thread.getTags().size());
+        return threads;
     }
 
     @Override
@@ -123,11 +135,14 @@ public class ThreadServiceImpl implements ThreadService {
         // Update tags
         if (threadDTO.getTags() != null) {
             Set<Tag> tags = new HashSet<>();
-            for (String tagLabel : threadDTO.getTags()) {
-                Tag tag = tagRepository.findByLabel(tagLabel)
+            for (TagDTO tagDTO : threadDTO.getTags()) {
+                Tag tag = tagRepository.findByLabel(tagDTO.getLabel())
                     .orElseGet(() -> {
                         Tag newTag = new Tag();
-                        newTag.setLabel(tagLabel);
+                        newTag.setLabel(tagDTO.getLabel());
+                        newTag.setDescription(tagDTO.getDescription());
+                        newTag.setColorCodeString(tagDTO.getColorCodeString());
+                        newTag.setWikidataEntityId(tagDTO.getWikidataEntityId());
                         return tagRepository.save(newTag);
                     });
                 tags.add(tag);

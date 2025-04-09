@@ -2,10 +2,19 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 
+interface Tag {
+  id: number;
+  label: string;
+  description: string;
+  colorCodeString: string;
+  wikidataEntityId: string;
+}
+
 interface Thread {
   id: number;
   title: string;
   description: string;
+  tags: Tag[];
 }
 
 interface User {
@@ -13,6 +22,7 @@ interface User {
   username: string;
   firstName: string;
   lastName: string;
+  tags: Tag[];
 }
 
 interface ApiResponse<T> {
@@ -115,6 +125,37 @@ const SearchResults = ({ query, onClose }: SearchResultsProps) => {
     return () => clearTimeout(debounceTimer);
   }, [query, activeTab, navigate]);
 
+  const renderTag = (tag: Tag) => {
+    const textColor = tag.colorCodeString ? getContrastColor(tag.colorCodeString) : 'text-gray-700';
+    return (
+      <span
+        key={tag.id}
+        className={`px-2 py-1 rounded-full text-xs border border-gray-200`}
+        style={{
+          backgroundColor: tag.colorCodeString || '#E5E7EB',
+          color: textColor
+        }}
+        title={tag.description || tag.label}
+      >
+        {tag.label}
+      </span>
+    );
+  };
+
+  // Helper function to determine text color based on background color
+  const getContrastColor = (hexColor: string): string => {
+    // Remove the hash if it exists
+    const color = hexColor.replace('#', '');
+    const r = parseInt(color.substr(0, 2), 16);
+    const g = parseInt(color.substr(2, 2), 16);
+    const b = parseInt(color.substr(4, 2), 16);
+    
+    // Calculate relative luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    return luminance > 0.5 ? '#000000' : '#FFFFFF';
+  };
+
   return (
     <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg max-h-[400px] overflow-hidden">
       <div className="flex border-b">
@@ -141,9 +182,7 @@ const SearchResults = ({ query, onClose }: SearchResultsProps) => {
       </div>
 
       <div className="overflow-y-auto max-h-[350px]">
-        {error ? (
-          <div className="p-4 text-center text-red-500">{error}</div>
-        ) : loading ? (
+        {loading ? (
           <div className="p-4 text-center text-gray-500">Searching...</div>
         ) : activeTab === 'threads' ? (
           threads.length > 0 ? (
@@ -156,10 +195,15 @@ const SearchResults = ({ query, onClose }: SearchResultsProps) => {
               >
                 <h3 className="font-medium text-gray-900">{thread.title}</h3>
                 <p className="text-sm text-gray-500 truncate">{thread.description}</p>
+                {thread.tags && thread.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {thread.tags.map((tag) => renderTag(tag))}
+                  </div>
+                )}
               </Link>
             ))
           ) : (
-            <div className="p-4 text-center text-gray-500">No threads found</div>
+            <div className="p-4 text-center text-gray-500">0 results found</div>
           )
         ) : (
           users.length > 0 ? (
@@ -174,10 +218,15 @@ const SearchResults = ({ query, onClose }: SearchResultsProps) => {
                   {user.firstName} {user.lastName}
                 </h3>
                 <p className="text-sm text-gray-500">@{user.username}</p>
+                {user.tags && user.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {user.tags.map((tag) => renderTag(tag))}
+                  </div>
+                )}
               </Link>
             ))
           ) : (
-            <div className="p-4 text-center text-gray-500">No users found</div>
+            <div className="p-4 text-center text-gray-500">0 results found</div>
           )
         )}
       </div>

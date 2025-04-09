@@ -6,6 +6,7 @@ import com.swe573.dto.UserRegistrationDTO;
 import com.swe573.dto.UserLoginDTO;
 import com.swe573.dto.UserUpdateDTO;
 import com.swe573.dto.PasswordChangeDTO;
+import com.swe573.dto.TagDTO;
 import com.swe573.models.User;
 import com.swe573.services.UserService;
 import com.swe573.services.AuthenticationService;
@@ -21,6 +22,7 @@ import com.swe573.exceptions.UnauthorizedException;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.HashSet;
 
 @Tag(name = "Users", description = "APIs for managing user accounts and profiles")
 @RestController
@@ -191,6 +193,17 @@ public class UserController {
         dto.setLastLoginAt(user.getLastLoginAt());
         dto.setReputation(user.getReputation());
         dto.setNotificationPreferences(user.getNotificationPreferences());
+        dto.setTags(user.getTags() != null ? user.getTags().stream()
+                .map(tag -> {
+                    TagDTO tagDTO = new TagDTO();
+                    tagDTO.setId(tag.getId());
+                    tagDTO.setLabel(tag.getLabel());
+                    tagDTO.setDescription(tag.getDescription());
+                    tagDTO.setColorCodeString(tag.getColorCodeString());
+                    tagDTO.setWikidataEntityId(tag.getWikidataEntityId());
+                    return tagDTO;
+                })
+                .collect(Collectors.toSet()) : new HashSet<>());
         return dto;
     }
 } 

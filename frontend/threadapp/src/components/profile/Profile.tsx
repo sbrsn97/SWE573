@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Avatar } from 'primereact/avatar';
-import { Skeleton } from 'primereact/skeleton';
-import { Card } from 'primereact/card';
 import { Calendar } from 'primereact/calendar';
 import { InputText } from 'primereact/inputtext';
 import { InputTextarea } from 'primereact/inputtextarea';
 import { Button } from 'primereact/button';
 import { useNavigate } from 'react-router';
 import { Toast } from 'primereact/toast';
-import Navbar from '../layout/Navbar';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
 import 'primeicons/primeicons.css';
@@ -37,7 +34,7 @@ interface EditableField {
 }
 
 function Profile() {
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -86,7 +83,7 @@ function Profile() {
       }
 
       const { data } = await response.json();
-      
+      setUser({...data.data, initials: data.data.firstName.charAt(0) + data.data.lastName.charAt(0)});
       toast.current?.show({
         severity: 'success',
         summary: 'Success',

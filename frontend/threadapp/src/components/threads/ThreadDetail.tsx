@@ -24,12 +24,6 @@ interface Thread {
   updatedAt: string;
 }
 
-interface User {
-  id: number;
-  username: string;
-  email: string;
-}
-
 interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -159,7 +153,7 @@ const ThreadDetail = () => {
     );
   };
 
-  const renderContent = (user: User) => {
+  const renderContent = () => {
     if (loading) {
       return (
         <div className="flex justify-center items-center h-[calc(100vh-80px)]">

@@ -7,7 +7,7 @@ const Home = () => {
       {(user: User) => (
         <section className="bg-white rounded-xl shadow-sm p-8 mb-8">
           <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-            Welcome to the Discussion Platform!
+            Welcome {user.username} to the Discussion Platform!
           </h1>
           <p className="text-lg text-gray-600">
             Start exploring and connecting with others.

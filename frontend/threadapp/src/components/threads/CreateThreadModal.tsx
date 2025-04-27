@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
+import { Tag } from '../tags/TagSelector';
+import TagSelector from '../tags/TagSelector';
 
 interface User {
   id: number;
@@ -24,10 +26,10 @@ interface CreateThreadModalProps {
 const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadModalProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [tags, setTags] = useState('');
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
   const handleApiError = async (response: Response) => {
@@ -95,7 +97,7 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
         body: JSON.stringify({
           title,
           description: description || null,
-          tags: tags.split(',').map(tag => tag.trim()).filter(Boolean)
+          tags: selectedTags
         })
       });
 
@@ -117,7 +119,7 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 backdrop-blur-[2px] bg-white/30 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
         <h2 className="text-2xl font-semibold mb-4">Create New Thread</h2>
         
@@ -156,16 +158,12 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
           </div>
 
           <div className="mb-6">
-            <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-1">
-              Tags (comma-separated)
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tags
             </label>
-            <input
-              type="text"
-              id="tags"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. javascript, react, typescript"
+            <TagSelector
+              selectedTags={selectedTags}
+              onTagsChange={setSelectedTags}
             />
           </div>
 

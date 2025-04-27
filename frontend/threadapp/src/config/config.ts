@@ -23,5 +23,15 @@ export const API_ENDPOINTS = {
         unfollow: (id: number) => `${API_BASE_URL}/threads/${id}/unfollow`,
         vote: (id: number) => `${API_BASE_URL}/threads/${id}/vote`,
         preview: `${API_BASE_URL}/threads/preview`
+    },
+    tags: {
+        create: `${API_BASE_URL}/tags`,
+        getAll: `${API_BASE_URL}/tags`,
+        search: `${API_BASE_URL}/tags/search`,
+        getByLabel: (label: string) => `${API_BASE_URL}/tags/label/${label}`,
+        getByWikidata: (id: string) => `${API_BASE_URL}/tags/wikidata/${id}`
+    },
+    wikidata: {
+        searchEntities: `${API_BASE_URL}/wikidata/entities/search`
     }
 }; 

@@ -1,6 +1,6 @@
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext'
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router';
 import { API_ENDPOINTS } from '../../../config/config';
 import './Login.css';

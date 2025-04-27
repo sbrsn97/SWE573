@@ -24,10 +24,8 @@ public class TagServiceImpl implements TagService {
             throw new IllegalArgumentException("Tag with this label already exists");
         }
 
-        if (tagDTO.getWikidataEntityId() != null && 
-            tagRepository.existsByWikidataEntityId(tagDTO.getWikidataEntityId())) {
-            throw new IllegalArgumentException("Tag with this Wikidata Entity ID already exists");
-        }
+        // We're removing Wikidata entity ID uniqueness validation to allow creating tags with the same or null Wikidata ID
+        // This allows tags created without a selected Wikidata entity to work properly
 
         Tag tag = new Tag();
         tag.setLabel(tagDTO.getLabel());
@@ -78,12 +76,8 @@ public class TagServiceImpl implements TagService {
             throw new IllegalArgumentException("Tag with this label already exists");
         }
 
-        // Check if new Wikidata Entity ID conflicts with existing tag (excluding current tag)
-        if (tagDTO.getWikidataEntityId() != null && 
-            !tagDTO.getWikidataEntityId().equals(tag.getWikidataEntityId()) &&
-            tagRepository.existsByWikidataEntityId(tagDTO.getWikidataEntityId())) {
-            throw new IllegalArgumentException("Tag with this Wikidata Entity ID already exists");
-        }
+        // We're removing Wikidata entity ID uniqueness validation to be consistent with the create method
+        // This allows tags to be updated with the same Wikidata entity ID
 
         tag.setLabel(tagDTO.getLabel());
         tag.setDescription(tagDTO.getDescription());

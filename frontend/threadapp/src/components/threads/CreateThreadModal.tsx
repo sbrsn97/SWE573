@@ -29,8 +29,18 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
+
+  // Reset form state when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setTitle('');
+      setDescription('');
+      setSelectedTags([]);
+      setError(null);
+    }
+  }, [isOpen]);
 
   const handleApiError = async (response: Response) => {
     const errorData: ApiResponse<any> = await response.json();
@@ -62,19 +72,42 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
         });
 
         if (!response.ok) {
-          const shouldRedirect = await handleApiError(response);
-          if (shouldRedirect) return;
+          try {
+            const errorData = await response.json();
+            console.error('Error fetching user:', errorData);
+            if (response.status === 401 && errorData.code === 'TOKEN_EXPIRED') {
+              localStorage.removeItem('token');
+              navigate('/auth');
+              return;
+            }
+            setError(errorData.message || 'An error occurred');
+          } catch (jsonError) {
+            setError(`Error: ${response.status} ${response.statusText}`);
+          }
+          return;
         }
 
         const { data } = await response.json();
+        console.log('Fetched current user:', data);
         setUser(data);
       } catch (err) {
+        console.error('Error fetching user:', err);
         setError(err instanceof Error ? err.message : 'An error occurred');
       }
     };
 
     fetchUser();
   }, [isOpen, navigate]);
+
+  // Log selected tags whenever they change
+  useEffect(() => {
+    console.log('Selected tags updated:', selectedTags);
+  }, [selectedTags]);
+  
+  const handleTagsChange = (newTags: Tag[]) => {
+    console.log('Tags changed to:', newTags);
+    setSelectedTags(newTags);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +121,12 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
         return;
       }
 
+      if (!user || !user.id) {
+        setError('User information not available. Please try again or log out and log back in.');
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(API_ENDPOINTS.threads.create, {
         method: 'POST',
         headers: {
@@ -97,18 +136,35 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
         body: JSON.stringify({
           title,
           description: description || null,
+          authorId: user.id,
           tags: selectedTags
         })
       });
 
+      console.log('Thread creation request with tags:', selectedTags);
+
       if (!response.ok) {
-        const shouldRedirect = await handleApiError(response);
-        if (shouldRedirect) return;
+        try {
+          const errorData = await response.json();
+          console.error('Error response:', errorData);
+          setError(errorData.message || `Error: ${response.status} ${response.statusText}`);
+        } catch (jsonError) {
+          console.error('Could not parse error response:', jsonError);
+          setError(`Error: ${response.status} ${response.statusText}`);
+        }
+        setLoading(false);
+        return;
       }
 
-      const { data } = await response.json();
-      onThreadCreated(data.id);
-      onClose();
+      try {
+        const { data } = await response.json();
+        console.log('Thread created successfully with ID:', data.id);
+        onThreadCreated(data.id);
+        onClose();
+      } catch (jsonError) {
+        console.error('Error parsing success response:', jsonError);
+        setError('Error parsing server response');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -161,9 +217,15 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tags
             </label>
+            <div className="text-xs text-gray-500 mb-2">
+              {selectedTags.length > 0 
+                ? `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected` 
+                : 'No tags selected'}
+            </div>
             <TagSelector
+              key={`tag-selector-${isOpen}`}
               selectedTags={selectedTags}
-              onTagsChange={setSelectedTags}
+              onTagsChange={handleTagsChange}
             />
           </div>
 

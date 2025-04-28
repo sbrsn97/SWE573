@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
 import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown } from 'react-icons/fa';
+import { fetchWithAuth, handleAuthError } from '../../utils/authUtils';
+import Tag from '../tags/Tag';
 
 interface Tag {
   id: number;
@@ -39,36 +41,27 @@ const ThreadDetail = () => {
   const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
   const navigate = useNavigate();
 
-  const handleApiError = async (response: Response) => {
-    const errorData: ApiResponse<any> = await response.json();
-    if (response.status === 401 && errorData.code === 'TOKEN_EXPIRED') {
-      localStorage.removeItem('token');
-      navigate('/auth');
-      return true;
-    }
-    setError(errorData.message || 'An error occurred');
-    return false;
-  };
-
   useEffect(() => {
     const fetchThread = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          navigate('/auth');
+        if (!id) {
+          setError('Thread ID is required');
+          setLoading(false);
           return;
         }
 
-        const response = await fetch(API_ENDPOINTS.threads.get(Number(id)), {
+        const response = await fetchWithAuth(API_ENDPOINTS.threads.get(Number(id)), {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Accept': 'application/json'
           }
         });
 
         if (!response.ok) {
-          const shouldRedirect = await handleApiError(response);
-          if (shouldRedirect) return;
+          if (handleAuthError(response, navigate)) return;
+          const errorData = await response.json();
+          setError(errorData.message || `Error ${response.status}: ${response.statusText}`);
+          setLoading(false);
+          return;
         }
 
         const { data } = await response.json();
@@ -87,24 +80,20 @@ const ThreadDetail = () => {
     if (!thread) return;
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/auth');
-        return;
-      }
-
-      const response = await fetch(API_ENDPOINTS.threads.vote(thread.id), {
+      const response = await fetchWithAuth(API_ENDPOINTS.threads.vote(thread.id), {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ isUpvote })
       });
 
       if (!response.ok) {
-        const shouldRedirect = await handleApiError(response);
-        if (shouldRedirect) return;
+        if (handleAuthError(response, navigate)) return;
+        
+        const errorData = await response.json();
+        setError(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        return;
       }
 
       const { data } = await response.json();
@@ -124,33 +113,6 @@ const ThreadDetail = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  const getContrastColor = (hexColor: string): string => {
-    const color = hexColor.replace('#', '');
-    const r = parseInt(color.substr(0, 2), 16);
-    const g = parseInt(color.substr(2, 2), 16);
-    const b = parseInt(color.substr(4, 2), 16);
-    
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.5 ? '#000000' : '#FFFFFF';
-  };
-
-  const renderTag = (tag: Tag) => {
-    const textColor = tag.colorCodeString ? getContrastColor(tag.colorCodeString) : 'text-gray-700';
-    return (
-      <span
-        key={tag.id}
-        className={`px-3 py-1 rounded-full text-sm border border-gray-200`}
-        style={{
-          backgroundColor: tag.colorCodeString || '#E5E7EB',
-          color: textColor
-        }}
-        title={tag.description || tag.label}
-      >
-        {tag.label}
-      </span>
-    );
   };
 
   const renderContent = () => {
@@ -195,7 +157,9 @@ const ThreadDetail = () => {
 
         {thread.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-8">
-            {thread.tags.map(renderTag)}
+            {thread.tags.map(tag => (
+              <Tag key={tag.id} tag={tag} />
+            ))}
           </div>
         )}
 
@@ -228,7 +192,7 @@ const ThreadDetail = () => {
     );
   };
 
-  return <MainLayout>{renderContent}</MainLayout>;
+  return <MainLayout>{() => renderContent()}</MainLayout>;
 };
 
 export default ThreadDetail; 

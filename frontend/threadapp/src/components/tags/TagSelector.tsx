@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 import CreateTagModal from './CreateTagModal';
 import TagComponent from './Tag';
+import { handleAuthError } from '../../utils/authUtils';
 
 export interface Tag {
   id: number;
@@ -32,6 +34,7 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const selectorRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // Handle clicks outside of component
   useEffect(() => {
@@ -47,13 +50,16 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
     };
   }, []);
 
-  // Fetch all tags on component mount
+  // Fetch all tags on component mount and when showCreateModal changes
   useEffect(() => {
     const fetchAllTags = async () => {
       setIsLoading(true);
       try {
         const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token found');
+        if (!token) {
+          navigate('/auth');
+          return;
+        }
 
         const response = await fetch(API_ENDPOINTS.tags.getAll, {
           headers: {
@@ -62,16 +68,29 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch tags');
+          // Handle authentication errors
+          if (handleAuthError(response, navigate)) {
+            return;
+          }
+          throw new Error(`Failed to fetch tags: ${response.status} ${response.statusText}`);
         }
 
         const data: ApiResponse<Tag[]> = await response.json();
+        
         if (data.success) {
           setAllTags(data.data);
+          if (!searchQuery.trim()) {
+            // Update search results with the newly fetched tags (filtered by selected)
+            const filteredResults = data.data.filter(
+              tag => !selectedTags.some(selected => selected.id === tag.id)
+            );
+            setSearchResults(filteredResults);
+          }
         } else {
           throw new Error(data.message);
         }
       } catch (err) {
+        console.error('Error fetching tags:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch tags');
       } finally {
         setIsLoading(false);
@@ -79,7 +98,7 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
     };
 
     fetchAllTags();
-  }, []);
+  }, [showCreateModal, selectedTags, navigate]);
 
   // Search tags when query changes
   useEffect(() => {
@@ -96,7 +115,10 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
       setIsLoading(true);
       try {
         const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token found');
+        if (!token) {
+          navigate('/auth');
+          return;
+        }
 
         const response = await fetch(`${API_ENDPOINTS.tags.search}?keyword=${encodeURIComponent(searchQuery)}`, {
           headers: {
@@ -105,10 +127,15 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to search tags');
+          // Handle authentication errors
+          if (handleAuthError(response, navigate)) {
+            return;
+          }
+          throw new Error(`Failed to search tags: ${response.status} ${response.statusText}`);
         }
 
         const data: ApiResponse<Tag[]> = await response.json();
+        
         if (data.success) {
           // Filter out already selected tags
           const filteredResults = data.data.filter(
@@ -119,6 +146,7 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
           throw new Error(data.message);
         }
       } catch (err) {
+        console.error('Error searching tags:', err);
         setError(err instanceof Error ? err.message : 'Failed to search tags');
         setSearchResults([]);
       } finally {
@@ -128,7 +156,7 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
 
     const debounceTimer = setTimeout(searchTags, 300);
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery, selectedTags, allTags]);
+  }, [searchQuery, selectedTags, allTags, navigate]);
 
   const handleTagSelect = (tag: Tag) => {
     onTagsChange([...selectedTags, tag]);
@@ -141,8 +169,6 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
   };
 
   const handleTagCreated = (newTag: Tag) => {
-    console.log('New tag created:', newTag);
-    
     // First update allTags to include the new tag
     setAllTags(prev => {
       // Check if the tag already exists to avoid duplicates
@@ -169,6 +195,13 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
       e.preventDefault();
       e.stopPropagation();
     }
+    
+    // Check if user is authenticated
+    if (!localStorage.getItem('token')) {
+      navigate('/auth');
+      return;
+    }
+    
     setShowCreateModal(true);
   };
 

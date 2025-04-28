@@ -55,17 +55,22 @@ public class WikidataServiceImpl implements WikidataService {
     @Override
     @Cacheable(value = "entities", key = "#page + '-' + #size")
     public PaginatedResponse<WikidataEntityDTO> getAllEntities(int page, int size) {
-        String sparqlQuery = String.format("""
-            SELECT DISTINCT ?item ?itemLabel ?itemDescription WHERE {
-              ?item wdt:P31 wdt:Q12136.
-              SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-              ?item rdfs:label ?itemLabel.
-              ?item schema:description ?itemDescription.
-            }
-            ORDER BY ?itemLabel
-            LIMIT %d
-            OFFSET %d
-            """, size, page * size);
+        // Query to get entities with the most sitelinks (most popular)
+        String sparqlQuery = 
+            "PREFIX wikibase: <http://wikiba.se/ontology#>\n" +
+            "PREFIX wd: <http://www.wikidata.org/entity/>\n" +
+            "PREFIX wdt: <http://www.wikidata.org/prop/direct/>\n" +
+            "PREFIX bd: <http://www.bigdata.com/rdf#>\n" +
+            "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n" +
+            "PREFIX schema: <http://schema.org/>\n" +
+            "\n" +
+            "SELECT ?item ?itemLabel ?itemDescription WHERE {\n" +
+            "  ?item wikibase:sitelinks ?count .\n" +
+            "  SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\". }\n" +
+            "}\n" +
+            "ORDER BY DESC(?count)\n" +
+            "LIMIT " + size + "\n" +
+            "OFFSET " + (page * size);
 
         return executeEntityQuery(sparqlQuery, page, size);
     }
@@ -81,6 +86,7 @@ public class WikidataServiceImpl implements WikidataService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/json");
+        headers.set("User-Agent", "SWE573 Thread App/1.0");
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         String url = UriComponentsBuilder.fromUriString(WIKIDATA_API_BASE)
@@ -135,17 +141,20 @@ public class WikidataServiceImpl implements WikidataService {
     @Override
     @Cacheable(value = "properties", key = "#page + '-' + #size")
     public PaginatedResponse<WikidataPropertyDTO> getAllProperties(int page, int size) {
-        String sparqlQuery = String.format("""
-            SELECT DISTINCT ?property ?propertyLabel ?propertyDescription WHERE {
-              ?property wdt:P31 wdt:Q12136.
-              SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
-              ?property rdfs:label ?propertyLabel.
-              ?property schema:description ?propertyDescription.
-            }
-            ORDER BY ?propertyLabel
-            LIMIT %d
-            OFFSET %d
-            """, size, page * size);
+        String sparqlQuery = 
+            "PREFIX wikibase: <http://wikiba.se/ontology#>\n" +
+            "PREFIX bd: <http://www.bigdata.com/rdf#>\n" +
+            "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n" +
+            "PREFIX schema: <http://schema.org/>\n" +
+            "\n" +
+            "SELECT ?property ?propertyLabel ?propertyDescription\n" +
+            "WHERE {\n" +
+            "  ?property a wikibase:Property .\n" +
+            "  SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\" . }\n" +
+            "}\n" +
+            "ORDER BY ?propertyLabel\n" +
+            "LIMIT " + size + "\n" +
+            "OFFSET " + (page * size);
 
         return executePropertyQuery(sparqlQuery, page, size);
     }
@@ -216,19 +225,29 @@ public class WikidataServiceImpl implements WikidataService {
     @Override
     @Cacheable(value = "wikidataTopics", key = "'search-' + #query + '-' + #page + '-' + #size")
     public PaginatedResponse<WikidataEntityDTO> searchTopics(String query, int page, int size) {
-        String sparqlQuery = String.format("""
-            SELECT DISTINCT ?item ?itemLabel ?itemDescription WHERE {
-              ?item wdt:P31 ?type.
-              ?type wdt:P279* wd:Q12136.
-              SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
-              ?item rdfs:label ?itemLabel.
-              ?item schema:description ?itemDescription.
-              FILTER(CONTAINS(LCASE(?itemLabel), LCASE("%s")))
-            }
-            ORDER BY ?itemLabel
-            LIMIT %d
-            OFFSET %d
-            """, query, size, page * size);
+        // Use the MediaWiki API service for more reliable text searches
+        String escapedQuery = query.replace("\"", "\\\"");
+        String sparqlQuery = 
+            "PREFIX wikibase: <http://wikiba.se/ontology#>\n" +
+            "PREFIX wd: <http://www.wikidata.org/entity/>\n" +
+            "PREFIX wdt: <http://www.wikidata.org/prop/direct/>\n" +
+            "PREFIX bd: <http://www.bigdata.com/rdf#>\n" +
+            "PREFIX mwapi: <https://www.mediawiki.org/ontology#>\n" +
+            "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n" +
+            "PREFIX schema: <http://schema.org/>\n" +
+            "\n" +
+            "SELECT ?item ?itemLabel ?itemDescription WHERE {\n" +
+            "  SERVICE wikibase:mwapi {\n" +
+            "    bd:serviceParam wikibase:api \"EntitySearch\" .\n" +
+            "    bd:serviceParam wikibase:endpoint \"www.wikidata.org\" .\n" +
+            "    bd:serviceParam mwapi:search \"" + escapedQuery + "\" .\n" +
+            "    bd:serviceParam mwapi:language \"en\" .\n" +
+            "    ?item wikibase:apiOutputItem mwapi:item .\n" +
+            "  }\n" +
+            "  SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\" . }\n" +
+            "}\n" +
+            "LIMIT " + size + "\n" +
+            "OFFSET " + (page * size);
 
         return executeEntityQuery(sparqlQuery, page, size);
     }
@@ -236,33 +255,40 @@ public class WikidataServiceImpl implements WikidataService {
     @Override
     @Cacheable(value = "wikidataTopic", key = "#id")
     public WikidataEntityDTO getTopicDetails(String id) {
-        String sparqlQuery = String.format("""
-            SELECT DISTINCT ?item ?itemLabel ?itemDescription ?property ?propertyLabel ?value ?valueLabel WHERE {
-              wd:%s ?property ?value.
-              SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
-              wd:%s rdfs:label ?itemLabel.
-              wd:%s schema:description ?itemDescription.
-              ?property rdfs:label ?propertyLabel.
-              ?value rdfs:label ?valueLabel.
-              FILTER(?property != wdt:P31 && ?property != wdt:P279)
-            }
-            """, id, id, id);
+        String sparqlQuery = 
+            "PREFIX wikibase: <http://wikiba.se/ontology#>\n" +
+            "PREFIX wd: <http://www.wikidata.org/entity/>\n" +
+            "PREFIX wdt: <http://www.wikidata.org/prop/direct/>\n" +
+            "PREFIX bd: <http://www.bigdata.com/rdf#>\n" +
+            "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n" +
+            "PREFIX schema: <http://schema.org/>\n" +
+            "\n" +
+            "SELECT ?item ?itemLabel ?itemDescription ?property ?propertyLabel ?value ?valueLabel\n" +
+            "WHERE {\n" +
+            "  VALUES ?item { wd:" + id + " }\n" +
+            "  ?item ?property ?value .\n" +
+            "  FILTER(?property != wdt:P31 && ?property != wdt:P279) .\n" +
+            "  SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\" . }\n" +
+            "}";
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Accept", "application/sparql-results+json");
-        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+        headers.set(HttpHeaders.ACCEPT, "application/sparql-results+json");
+        headers.set(HttpHeaders.USER_AGENT, "SWE573 Thread App/1.0");
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
 
-        String url = UriComponentsBuilder.fromUriString(WIKIDATA_SPARQL_BASE)
-                .queryParam("query", sparqlQuery)
-                .queryParam("format", "json")
-                .build()
-                .toUriString();
+        // Build and encode the URI in one go:
+        java.net.URI uri = UriComponentsBuilder
+            .fromHttpUrl(WIKIDATA_SPARQL_BASE)        // "https://query.wikidata.org/sparql"
+            .queryParam("query", sparqlQuery)         // your raw SPARQL string
+            .build()                                  // bind into a URI template
+            .encode()                                 // percent-encode path & query appropriately
+            .toUri();
 
         ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                requestEntity,
-                Map.class
+            uri,
+            HttpMethod.GET,
+            requestEntity,
+            Map.class
         );
 
         Map<String, Object> result = response.getBody();
@@ -422,21 +448,23 @@ public class WikidataServiceImpl implements WikidataService {
         waitForRateLimit("executeEntityQuery");
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Accept", "application/sparql-results+json");
-        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+        headers.set(HttpHeaders.ACCEPT, "application/sparql-results+json");
+        headers.set(HttpHeaders.USER_AGENT, "SWE573 Thread App/1.0");
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
 
-        String encodedQuery = sparqlQuery.replaceAll("\\s+", " ").trim();
-        String url = UriComponentsBuilder.fromUriString(WIKIDATA_SPARQL_BASE)
-                .queryParam("format", "json")
-                .toUriString();
-
-        url = url + "&query=" + java.net.URLEncoder.encode(encodedQuery, java.nio.charset.StandardCharsets.UTF_8);
+        // Build and encode the URI in one go:
+        java.net.URI uri = UriComponentsBuilder
+            .fromHttpUrl(WIKIDATA_SPARQL_BASE)        // "https://query.wikidata.org/sparql"
+            .queryParam("query", sparqlQuery)         // your raw SPARQL string
+            .build()                                  // bind into a URI template
+            .encode()                                 // percent-encode path & query appropriately
+            .toUri();
 
         ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                requestEntity,
-                Map.class
+            uri,
+            HttpMethod.GET,
+            requestEntity,
+            Map.class
         );
 
         Map<String, Object> result = response.getBody();
@@ -487,21 +515,23 @@ public class WikidataServiceImpl implements WikidataService {
         waitForRateLimit("executePropertyQuery");
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Accept", "application/sparql-results+json");
-        HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+        headers.set(HttpHeaders.ACCEPT, "application/sparql-results+json");
+        headers.set(HttpHeaders.USER_AGENT, "SWE573 Thread App/1.0");
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
 
-        String encodedQuery = sparqlQuery.replaceAll("\\s+", " ").trim();
-        String url = UriComponentsBuilder.fromUriString(WIKIDATA_SPARQL_BASE)
-                .queryParam("format", "json")
-                .toUriString();
-
-        url = url + "&query=" + java.net.URLEncoder.encode(encodedQuery, java.nio.charset.StandardCharsets.UTF_8);
+        // Build and encode the URI in one go:
+        java.net.URI uri = UriComponentsBuilder
+            .fromHttpUrl(WIKIDATA_SPARQL_BASE)        // "https://query.wikidata.org/sparql"
+            .queryParam("query", sparqlQuery)         // your raw SPARQL string
+            .build()                                  // bind into a URI template
+            .encode()                                 // percent-encode path & query appropriately
+            .toUri();
 
         ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                requestEntity,
-                Map.class
+            uri,
+            HttpMethod.GET,
+            requestEntity,
+            Map.class
         );
 
         Map<String, Object> result = response.getBody();
@@ -549,8 +579,17 @@ public class WikidataServiceImpl implements WikidataService {
     }
 
     private WikidataEntityDTO parseEntityResult(Map<String, Object> result) {
-        List<Map<String, Object>> bindings = (List<Map<String, Object>>) result.get("results");
-        if (bindings.isEmpty()) {
+        if (result == null || !result.containsKey("results")) {
+            return null;
+        }
+        
+        Map<String, Object> resultsMap = (Map<String, Object>) result.get("results");
+        if (resultsMap == null || !resultsMap.containsKey("bindings")) {
+            return null;
+        }
+        
+        List<Map<String, Object>> bindings = (List<Map<String, Object>>) resultsMap.get("bindings");
+        if (bindings == null || bindings.isEmpty()) {
             return null;
         }
 
@@ -585,8 +624,17 @@ public class WikidataServiceImpl implements WikidataService {
     }
 
     private WikidataPropertyDTO parsePropertyResult(Map<String, Object> result) {
-        List<Map<String, Object>> bindings = (List<Map<String, Object>>) result.get("results");
-        if (bindings.isEmpty()) {
+        if (result == null || !result.containsKey("results")) {
+            return null;
+        }
+        
+        Map<String, Object> resultsMap = (Map<String, Object>) result.get("results");
+        if (resultsMap == null || !resultsMap.containsKey("bindings")) {
+            return null;
+        }
+        
+        List<Map<String, Object>> bindings = (List<Map<String, Object>>) resultsMap.get("bindings");
+        if (bindings == null || bindings.isEmpty()) {
             return null;
         }
 

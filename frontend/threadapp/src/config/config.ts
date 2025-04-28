@@ -32,6 +32,30 @@ export const API_ENDPOINTS = {
         getByWikidata: (id: string) => `${API_BASE_URL}/tags/wikidata/${id}`
     },
     wikidata: {
-        searchEntities: `${API_BASE_URL}/wikidata/entities/search`
+        // Entity endpoints
+        entities: {
+            getAll: (page: number = 0, size: number = 10) => 
+                `${API_BASE_URL}/wikidata/entities?page=${page}&size=${size}`,
+            search: (query: string, page: number = 0, size: number = 10) => 
+                `${API_BASE_URL}/wikidata/entities/search?query=${encodeURIComponent(query)}&page=${page}&size=${size}`,
+            getById: (id: string) => 
+                `${API_BASE_URL}/wikidata/entities/${id}`
+        },
+        // Topic endpoints
+        topics: {
+            getById: (id: string) => 
+                `${API_BASE_URL}/wikidata/topics/${id}`,
+            search: (query: string, page: number = 0, size: number = 10) => 
+                `${API_BASE_URL}/wikidata/topics/search?query=${encodeURIComponent(query)}&page=${page}&size=${size}`
+        },
+        // Property endpoints
+        properties: {
+            getAll: (page: number = 0, size: number = 10) => 
+                `${API_BASE_URL}/wikidata/properties?page=${page}&size=${size}`,
+            search: (query: string, page: number = 0, size: number = 10) => 
+                `${API_BASE_URL}/wikidata/properties/search?query=${encodeURIComponent(query)}&page=${page}&size=${size}`,
+            getById: (id: string) => 
+                `${API_BASE_URL}/wikidata/properties/${id}`
+        }
     }
 }; 

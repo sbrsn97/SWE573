@@ -39,6 +39,9 @@ public class Node extends BaseEntity {
     @Column(nullable = false)
     private Integer version = 1;
 
+    @OneToOne(mappedBy = "node", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private NodeDetails details;
+
     @PrePersist
     @PreUpdate
     public void validate() {

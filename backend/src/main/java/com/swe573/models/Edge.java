@@ -37,6 +37,9 @@ public class Edge extends BaseEntity {
     @Column(nullable = false)
     private String color = "#555555";
 
+    @Column
+    private String wikidataPropertyId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "thread_id")
     @JsonIgnoreProperties({"nodes", "edges", "hibernateLazyInitializer", "handler"})

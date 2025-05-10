@@ -175,7 +175,7 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-[2px] bg-white/30 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 backdrop-blur-[2px] bg-white/30 flex items-center justify-start pl-72 p-4 z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
         <h2 className="text-2xl font-semibold mb-4">Create New Thread</h2>
         

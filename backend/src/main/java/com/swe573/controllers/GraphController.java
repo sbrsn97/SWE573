@@ -94,8 +94,9 @@ public class GraphController {
             @RequestParam(required = false) String label,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) Integer weight,
-            @RequestParam(required = false) String color) {
-        Edge edge = graphService.createEdge(threadId, sourceNodeId, targetNodeId, label, type, weight, color);
+            @RequestParam(required = false) String color,
+            @RequestParam(required = false) String wikidataPropertyId) {
+        Edge edge = graphService.createEdge(threadId, sourceNodeId, targetNodeId, label, type, weight, color, wikidataPropertyId);
         return ResponseEntity.ok(ApiResponse.success("Edge created successfully", EdgeDTO.fromEntity(edge)));
     }
 

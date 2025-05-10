@@ -440,8 +440,8 @@ const CreateTagModal = ({ onClose, onTagCreated }: CreateTagModalProps) => {
   }, [showColorPicker]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30 overflow-y-auto">
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-start pl-72 backdrop-blur-sm bg-black/30 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
         <div className="mb-4">
           <h2 className="text-xl font-semibold">Create New Tag</h2>
           

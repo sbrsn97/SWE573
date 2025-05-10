@@ -16,6 +16,7 @@ public class EdgeDTO {
     private String type;
     private Integer weight;
     private String color;
+    private String wikidataPropertyId;
     private Long threadId;
     
     public static EdgeDTO fromEntity(Edge edge) {
@@ -31,6 +32,7 @@ public class EdgeDTO {
         dto.setType(edge.getType());
         dto.setWeight(edge.getWeight());
         dto.setColor(edge.getColor());
+        dto.setWikidataPropertyId(edge.getWikidataPropertyId());
         dto.setThreadId(edge.getThread() != null ? edge.getThread().getId() : null);
         
         return dto;

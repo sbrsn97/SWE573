@@ -8,4 +8,5 @@ public class EdgeUpdateDTO {
     private String type;
     private Integer weight;
     private String color;
+    private String wikidataPropertyId;
 } 

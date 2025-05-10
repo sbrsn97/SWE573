@@ -166,7 +166,7 @@ public class GraphService {
 
     // Edge Operations
     @Transactional
-    public Edge createEdge(Long threadId, Long sourceNodeId, Long targetNodeId, String label, String type, Integer weight, String color) {
+    public Edge createEdge(Long threadId, Long sourceNodeId, Long targetNodeId, String label, String type, Integer weight, String color, String wikidataPropertyId) {
         Thread thread = threadRepository.findById(threadId)
                 .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
 
@@ -193,6 +193,7 @@ public class GraphService {
         edge.setType(type);
         edge.setWeight(weight);
         edge.setColor(color != null ? color : "#555555"); // Set color with default
+        edge.setWikidataPropertyId(wikidataPropertyId);
         edge.setThread(thread);
 
         return edgeRepository.save(edge);
@@ -228,6 +229,7 @@ public class GraphService {
             edge.setType(edgeDTO.getType());
             edge.setWeight(edgeDTO.getWeight());
             edge.setColor(edgeDTO.getColor() != null ? edgeDTO.getColor() : "#555555"); // Set color with default
+            edge.setWikidataPropertyId(edgeDTO.getWikidataPropertyId());
             edge.setThread(thread);
 
             createdEdges.add(edgeRepository.save(edge));
@@ -255,6 +257,9 @@ public class GraphService {
         }
         if (updateDTO.getColor() != null) {
             edge.setColor(updateDTO.getColor());
+        }
+        if (updateDTO.getWikidataPropertyId() != null) {
+            edge.setWikidataPropertyId(updateDTO.getWikidataPropertyId());
         }
 
         return edgeRepository.save(edge);

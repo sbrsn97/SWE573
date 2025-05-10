@@ -3,6 +3,7 @@ package com.swe573.models;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "edges", indexes = {
@@ -16,10 +17,12 @@ public class Edge extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_node_id")
+    @JsonIgnoreProperties({"thread", "details", "hibernateLazyInitializer", "handler"})
     private Node sourceNode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_node_id")
+    @JsonIgnoreProperties({"thread", "details", "hibernateLazyInitializer", "handler"})
     private Node targetNode;
 
     @Column
@@ -31,8 +34,12 @@ public class Edge extends BaseEntity {
     @Column(nullable = false)
     private Integer weight = 1;
 
+    @Column(nullable = false)
+    private String color = "#555555";
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "thread_id")
+    @JsonIgnoreProperties({"nodes", "edges", "hibernateLazyInitializer", "handler"})
     private Thread thread;
 
     @PrePersist

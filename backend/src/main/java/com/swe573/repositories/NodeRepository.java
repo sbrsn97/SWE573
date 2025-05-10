@@ -8,5 +8,5 @@ import java.util.List;
 
 @Repository
 public interface NodeRepository extends JpaRepository<Node, Long> {
-    List<Node> findByThreadId(Long threadId);
+    List<Node> findByThread_Id(Long threadId);
 } 

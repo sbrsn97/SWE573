@@ -57,5 +57,48 @@ export const API_ENDPOINTS = {
             getById: (id: string) => 
                 `${API_BASE_URL}/wikidata/properties/${id}`
         }
+    },
+    graph: {
+        // Node endpoints
+        nodes: {
+            create: (threadId: number) => `${API_BASE_URL}/graph/threads/${threadId}/nodes`,
+            createBatch: (threadId: number) => `${API_BASE_URL}/graph/threads/${threadId}/nodes/batch`,
+            update: (nodeId: number) => `${API_BASE_URL}/graph/nodes/${nodeId}`,
+            delete: (nodeId: number) => `${API_BASE_URL}/graph/nodes/${nodeId}`,
+            get: (nodeId: number) => `${API_BASE_URL}/graph/nodes/${nodeId}`,
+            getByThread: (threadId: number) => `${API_BASE_URL}/graph/threads/${threadId}/nodes`,
+            search: (threadId: number, query: string) => 
+                `${API_BASE_URL}/graph/threads/${threadId}/nodes/search?query=${encodeURIComponent(query)}`
+        },
+        // Node details endpoints
+        nodeDetails: {
+            get: (detailsId: number) => `${API_BASE_URL}/graph/nodedetails/${detailsId}`,
+            getByNode: (nodeId: number) => `${API_BASE_URL}/graph/nodes/${nodeId}/details`
+        },
+        // Edge endpoints
+        edges: {
+            create: (threadId: number) => `${API_BASE_URL}/graph/threads/${threadId}/edges`,
+            createBatch: (threadId: number) => `${API_BASE_URL}/graph/threads/${threadId}/edges/batch`,
+            update: (edgeId: number) => `${API_BASE_URL}/graph/edges/${edgeId}`,
+            delete: (edgeId: number) => `${API_BASE_URL}/graph/edges/${edgeId}`,
+            getByThread: (threadId: number) => `${API_BASE_URL}/graph/threads/${threadId}/edges`,
+            getByNode: (nodeId: number) => `${API_BASE_URL}/graph/nodes/${nodeId}/edges`,
+            search: (threadId: number, query: string) => 
+                `${API_BASE_URL}/graph/threads/${threadId}/edges/search?query=${encodeURIComponent(query)}`
+        },
+        // Connection endpoints
+        connections: {
+            connect: (sourceNodeId: number, targetNodeId: number) => 
+                `${API_BASE_URL}/graph/nodes/${sourceNodeId}/connect/${targetNodeId}`,
+            disconnect: (sourceNodeId: number, targetNodeId: number) => 
+                `${API_BASE_URL}/graph/nodes/${sourceNodeId}/disconnect/${targetNodeId}`,
+            getConnections: (nodeId: number) => 
+                `${API_BASE_URL}/graph/nodes/${nodeId}/connections`
+        },
+        // Analysis endpoints
+        analysis: {
+            getGraphAnalysis: (threadId: number) => `${API_BASE_URL}/graph/threads/${threadId}/analysis`,
+            getConnectedNodes: (nodeId: number) => `${API_BASE_URL}/graph/nodes/${nodeId}/connections`
+        }
     }
 }; 

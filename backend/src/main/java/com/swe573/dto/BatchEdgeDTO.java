@@ -9,4 +9,5 @@ public class BatchEdgeDTO {
     private String label;
     private String type;
     private Integer weight;
+    private String color;
 } 

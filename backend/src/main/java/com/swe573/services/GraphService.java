@@ -72,6 +72,7 @@ public class GraphService {
 
     @Transactional
     public Node updateNode(Long nodeId, NodeUpdateDTO updateDTO) {
+        // Fetch the node with normal JPA find
         Node node = nodeRepository.findById(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
@@ -79,12 +80,16 @@ public class GraphService {
         if (updateDTO.getLabel() != null) {
             node.setLabel(updateDTO.getLabel());
         }
+        
+        // Handle position updates explicitly - this is the part we're focusing on
         if (updateDTO.getXPosition() != null) {
             node.setXPosition(updateDTO.getXPosition());
         }
         if (updateDTO.getYPosition() != null) {
             node.setYPosition(updateDTO.getYPosition());
         }
+        
+        // Update other properties
         if (updateDTO.getColor() != null) {
             node.setColor(updateDTO.getColor());
         }
@@ -95,10 +100,15 @@ public class GraphService {
             node.setSize(updateDTO.getSize());
         }
 
-        // Update node details if they exist
+        // Only update node details if details-specific properties are provided
+        if (updateDTO.getWikidataEntityId() != null || updateDTO.getDescription() != null) {
+            // Update node details if they exist or create if needed
         if (node.getDetails() == null) {
             NodeDetails details = new NodeDetails();
             details.setNode(node);
+                details.setWikidataEntityId(updateDTO.getWikidataEntityId() != null ? 
+                    updateDTO.getWikidataEntityId() : "default");
+                details.setLabel(node.getLabel());
             node.setDetails(details);
         }
 
@@ -108,10 +118,16 @@ public class GraphService {
         }
         if (updateDTO.getDescription() != null) {
             node.getDetails().setDescription(updateDTO.getDescription());
+            }
         }
 
         node.setVersion(node.getVersion() + 1);
-        return nodeRepository.save(node);
+        
+        // Save and flush to ensure the entity is persisted immediately
+        Node savedNode = nodeRepository.saveAndFlush(node);
+        
+        // Return the updated node
+        return savedNode;
     }
 
     @Transactional
@@ -132,11 +148,11 @@ public class GraphService {
     }
 
     public List<Node> getNodesByThread(Long threadId) {
-        return nodeRepository.findByThreadId(threadId);
+        return nodeRepository.findByThread_Id(threadId);
     }
 
     public List<Node> searchNodes(Long threadId, String query) {
-        List<Node> nodes = nodeRepository.findByThreadId(threadId);
+        List<Node> nodes = nodeRepository.findByThread_Id(threadId);
         return nodes.stream()
                 .filter(node -> 
                     node.getLabel().toLowerCase().contains(query.toLowerCase()) ||
@@ -150,7 +166,7 @@ public class GraphService {
 
     // Edge Operations
     @Transactional
-    public Edge createEdge(Long threadId, Long sourceNodeId, Long targetNodeId, String label, String type, Integer weight) {
+    public Edge createEdge(Long threadId, Long sourceNodeId, Long targetNodeId, String label, String type, Integer weight, String color) {
         Thread thread = threadRepository.findById(threadId)
                 .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
 
@@ -176,6 +192,7 @@ public class GraphService {
         edge.setLabel(label);
         edge.setType(type);
         edge.setWeight(weight);
+        edge.setColor(color != null ? color : "#555555"); // Set color with default
         edge.setThread(thread);
 
         return edgeRepository.save(edge);
@@ -210,6 +227,7 @@ public class GraphService {
             edge.setLabel(edgeDTO.getLabel());
             edge.setType(edgeDTO.getType());
             edge.setWeight(edgeDTO.getWeight());
+            edge.setColor(edgeDTO.getColor() != null ? edgeDTO.getColor() : "#555555"); // Set color with default
             edge.setThread(thread);
 
             createdEdges.add(edgeRepository.save(edge));
@@ -219,8 +237,12 @@ public class GraphService {
 
     @Transactional
     public Edge updateEdge(Long edgeId, EdgeUpdateDTO updateDTO) {
-        Edge edge = edgeRepository.findById(edgeId)
+        // Use the new repository method to eagerly load the edge with its nodes and threads
+        Edge edge = edgeRepository.findByIdWithNodesAndThreads(edgeId)
                 .orElseThrow(() -> new EntityNotFoundException("Edge not found"));
+
+        // The source and target nodes with their threads are now eagerly loaded,
+        // so the validation in the @PreUpdate method should work correctly
 
         if (updateDTO.getLabel() != null) {
             edge.setLabel(updateDTO.getLabel());
@@ -230,6 +252,9 @@ public class GraphService {
         }
         if (updateDTO.getWeight() != null) {
             edge.setWeight(updateDTO.getWeight());
+        }
+        if (updateDTO.getColor() != null) {
+            edge.setColor(updateDTO.getColor());
         }
 
         return edgeRepository.save(edge);
@@ -244,7 +269,7 @@ public class GraphService {
     }
 
     public List<Edge> getEdgesByThread(Long threadId) {
-        return edgeRepository.findByThreadId(threadId);
+        return edgeRepository.findByThread_Id(threadId);
     }
 
     public List<Edge> getEdgesByNode(Long nodeId) {
@@ -255,7 +280,7 @@ public class GraphService {
     }
 
     public List<Edge> searchEdges(Long threadId, String query) {
-        List<Edge> edges = edgeRepository.findByThreadId(threadId);
+        List<Edge> edges = edgeRepository.findByThread_Id(threadId);
         return edges.stream()
                 .filter(edge -> 
                     (edge.getLabel() != null && edge.getLabel().toLowerCase().contains(query.toLowerCase())) ||
@@ -266,8 +291,8 @@ public class GraphService {
 
     // Graph Analysis
     public Map<String, Object> getGraphAnalysis(Long threadId) {
-        List<Node> nodes = nodeRepository.findByThreadId(threadId);
-        List<Edge> edges = edgeRepository.findByThreadId(threadId);
+        List<Node> nodes = nodeRepository.findByThread_Id(threadId);
+        List<Edge> edges = edgeRepository.findByThread_Id(threadId);
 
         Map<String, Object> analysis = new HashMap<>();
         analysis.put("totalNodes", nodes.size());

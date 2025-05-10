@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 @Entity
 @Table(name = "nodes", indexes = {
@@ -12,6 +14,7 @@ import lombok.Setter;
 })
 @Getter
 @Setter
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Node extends BaseEntity {
 
     @NotBlank
@@ -19,6 +22,7 @@ public class Node extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "thread_id")
+    @JsonIgnoreProperties({"nodes", "hibernateLazyInitializer", "handler"})
     private Thread thread;
 
     @Column(nullable = false)
@@ -40,6 +44,7 @@ public class Node extends BaseEntity {
     private Integer version = 1;
 
     @OneToOne(mappedBy = "node", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnoreProperties({"node", "hibernateLazyInitializer", "handler"})
     private NodeDetails details;
 
     @PrePersist

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "node_details", indexes = {
@@ -16,6 +17,7 @@ public class NodeDetails extends BaseEntity {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "node_id", nullable = false)
+    @JsonIgnoreProperties({"details", "thread", "hibernateLazyInitializer", "handler"})
     private Node node;
 
     @Column(name = "wikidata_entity_id", nullable = false)

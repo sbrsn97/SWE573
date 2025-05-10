@@ -7,6 +7,7 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.EqualsAndHashCode;
 import com.swe573.models.enums.VoteType;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -25,6 +26,7 @@ public class Thread extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id")
+    @JsonIgnoreProperties({"threads", "hibernateLazyInitializer", "handler"})
     private User author;
 
     @ManyToMany
@@ -33,6 +35,7 @@ public class Thread extends BaseEntity {
         joinColumns = @JoinColumn(name = "thread_id"),
         inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
+    @JsonIgnoreProperties({"threads", "hibernateLazyInitializer", "handler"})
     private Set<Tag> tags = new HashSet<>();
 
     // Users following/subscribed to this thread
@@ -42,18 +45,23 @@ public class Thread extends BaseEntity {
         joinColumns = @JoinColumn(name = "thread_id"),
         inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @JsonIgnoreProperties({"followedThreads", "hibernateLazyInitializer", "handler"})
     private Set<User> threadFollowers = new HashSet<>();
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"thread", "hibernateLazyInitializer", "handler"})
     private Set<Comment> comments = new HashSet<>();
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"thread", "hibernateLazyInitializer", "handler"})
     private Set<Node> nodes = new HashSet<>();
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"thread", "hibernateLazyInitializer", "handler"})
     private Set<Edge> edges = new HashSet<>();
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"thread", "hibernateLazyInitializer", "handler"})
     private Set<Vote> votes = new HashSet<>();
 
     // Cached vote counts to avoid counting every time

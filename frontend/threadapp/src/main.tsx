@@ -9,6 +9,7 @@ import Profile from './components/profile/Profile.tsx'
 import UserProfile from './components/profile/UserProfile.tsx'
 import Home from './components/home/Home.tsx'
 import ThreadDetail from './components/threads/ThreadDetail.tsx'
+import ThreadsList from './components/threads/ThreadsList.tsx'
 import { setupAuthInterceptor } from './utils/authUtils'
 import AuthRoute from './components/auth/AuthRoute.tsx'
 
@@ -44,6 +45,11 @@ const App = () => {
       <Route path="/threads/:id" element={
         <AuthRoute>
           <ThreadDetail />
+        </AuthRoute>
+      } />
+      <Route path="/threads" element={
+        <AuthRoute>
+          <ThreadsList />
         </AuthRoute>
       } />
       

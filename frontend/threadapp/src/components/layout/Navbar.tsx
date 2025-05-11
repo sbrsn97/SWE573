@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { FaHome, FaSearch, FaCog, FaSignOutAlt } from 'react-icons/fa';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { FaHome, FaSearch, FaCog, FaSignOutAlt, FaList } from 'react-icons/fa';
 import { API_ENDPOINTS } from '../../config/config';
 import SearchResults from './SearchResults';
 
@@ -22,6 +22,7 @@ const Navbar = ({ user }: NavbarProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -84,14 +85,24 @@ const Navbar = ({ user }: NavbarProps) => {
     return '';
   };
 
+  const isActive = (path: string) => {
+    return location.pathname === path ? 'text-blue-700 bg-blue-100' : 'text-blue-600 hover:bg-blue-100';
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 h-[60px] bg-white shadow-sm z-50 px-4 py-2 flex items-center justify-between">
-      <div className="flex-none">
+      <div className="flex-none flex items-center">
         <Link 
           to="/home" 
-          className="p-2 rounded-full text-blue-600 hover:bg-blue-100 hover:scale-110 active:scale-95 transition-all duration-200 ease-in-out flex items-center justify-center"
+          className={`p-2 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 ease-in-out flex items-center justify-center mr-2 ${isActive('/home')}`}
         >
           <FaHome className="text-2xl" />
+        </Link>
+        <Link 
+          to="/threads" 
+          className={`p-2 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 ease-in-out flex items-center justify-center ${isActive('/threads')}`}
+        >
+          <FaList className="text-2xl" />
         </Link>
       </div>
 

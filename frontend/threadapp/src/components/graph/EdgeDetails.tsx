@@ -256,6 +256,11 @@ const EdgeDetails: React.FC<EdgeDetailsProps> = ({ edge, onClose, onUpdate, onDe
 
   // Effect to search for wikidata properties when the search query changes
   useEffect(() => {
+    // Skip search when item is being selected from dropdown
+    if (selectedProperty && propertySearch === selectedProperty.label) {
+      return;
+    }
+    
     // Clear the debounce timer
     const debounceTimer = setTimeout(() => {
       if (!propertySearch.trim()) {
@@ -270,7 +275,7 @@ const EdgeDetails: React.FC<EdgeDetailsProps> = ({ edge, onClose, onUpdate, onDe
     return () => {
       clearTimeout(debounceTimer);
     };
-  }, [propertySearch]);
+  }, [propertySearch, selectedProperty]);
 
   const fetchInitialProperties = async () => {
     setIsLoading(true);
@@ -478,10 +483,15 @@ const EdgeDetails: React.FC<EdgeDetailsProps> = ({ edge, onClose, onUpdate, onDe
   };
 
   const handleSelectProperty = (property: WikidataProperty) => {
+    // First set the selected property
     setSelectedProperty(property);
+    
+    // Now update the label and visible search text
     setLabel(property.label);
     setPropertySearch(property.label);
     setWikidataPropertyId(property.id);
+    
+    // Close the dropdown immediately
     setShowDropdown(false);
   };
 

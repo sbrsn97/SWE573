@@ -84,6 +84,7 @@ const ThreadDetail = () => {
   const [thread, setThread] = useState<Thread | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null); // Error for forms only
   const [userVote, setUserVote] = useState<'UPVOTE' | 'DOWNVOTE' | null>(null);
   const [votingInProgress, setVotingInProgress] = useState(false);
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
@@ -124,6 +125,26 @@ const ThreadDetail = () => {
   const [authorLoading, setAuthorLoading] = useState(false);
   
   const navigate = useNavigate();
+
+  // CSS for animations
+  useEffect(() => {
+    // Add keyframes for the fade-in animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   // Fetch thread vote status
   const fetchThreadVoteStatus = useCallback(async () => {
@@ -292,29 +313,51 @@ const ThreadDetail = () => {
   }, [thread, userVote, recalculateVoteCounts]);
 
   // Add fetchGraphData declaration reference at the top, before it's used
-  const fetchGraphData = async () => {
+  const fetchGraphData = useCallback(async () => {
     if (!id) return;
     
     setGraphLoading(true);
     
     try {
-      const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.getByThread(Number(id)));
-      
-      if (!response.ok) {
-        if (handleAuthError(response, navigate)) return;
-        console.error('Failed to fetch graph data');
+      // Fetch nodes
+      const nodesResponse = await fetchWithAuth(API_ENDPOINTS.graph.nodes.getByThread(Number(id)));
+      if (!nodesResponse.ok) {
+        if (handleAuthError(nodesResponse, navigate)) return;
+        console.error('Failed to load graph nodes');
         return;
       }
+      const nodesData = await nodesResponse.json();
+      setGraphNodes(nodesData.data || []);
       
-      const data = await response.json();
-      setGraphNodes(data.data.nodes || []);
-      setGraphEdges(data.data.edges || []);
+      // Fetch edges
+      const edgesResponse = await fetchWithAuth(API_ENDPOINTS.graph.edges.getByThread(Number(id)));
+      if (!edgesResponse.ok) {
+        if (handleAuthError(edgesResponse, navigate)) return;
+        console.error('Failed to load graph edges');
+        return;
+      }
+      const edgesData = await edgesResponse.json();
+      
+      // Ensure all edges have a color property
+      const edgesWithColor = (edgesData.data || []).map((edge: GraphEdge) => ({
+        ...edge,
+        color: edge.color || '#555555' // Default color if not present
+      }));
+      
+      setGraphEdges(edgesWithColor);
     } catch (err) {
       console.error('Error fetching graph data:', err);
     } finally {
       setGraphLoading(false);
     }
-  };
+  }, [id, navigate, handleAuthError]);
+
+  // Add useEffect to fetch graph data when the component mounts or thread ID changes
+  useEffect(() => {
+    if (id) {
+      fetchGraphData();
+    }
+  }, [id, navigate, fetchGraphData]);
 
   const handleNodePositionChange = async (nodeId: number, x: number, y: number) => {
     try {
@@ -493,7 +536,7 @@ const ThreadDetail = () => {
     if (!id) return;
     
     setIsSubmitting(true);
-    setError(null);
+    setFormError(null);
     
     try {
       const nodeData = {
@@ -506,36 +549,51 @@ const ThreadDetail = () => {
         size: nodeSize
       };
       
-      const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.create(Number(id)), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(nodeData)
-      });
-      
-      if (!response.ok) {
-        if (handleAuthError(response, navigate)) return;
+      // Try to create the node without changing page state on error
+      try {
+        const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.create(Number(id)), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(nodeData)
+        });
         
-        const errorResponse = await response.json();
-        const errorMessage = errorResponse.message || 'Failed to create node';
-        setError(errorMessage);
-        return;
+        if (!response.ok) {
+          // Handle authentication errors but skip redirects
+          if (response.status === 401) {
+            setFormError("Authentication error. Please log in again.");
+            return;
+          }
+          
+          const errorResponse = await response.json();
+          
+          // Look for profanity-related messages in the error
+          if (errorResponse && errorResponse.message && 
+             (errorResponse.message.toLowerCase().includes('inappropriate language') ||
+              errorResponse.message.toLowerCase().includes('profanity'))) {
+            setFormError("Your node label contains inappropriate language. Please revise it.");
+            return;
+          }
+          
+          setFormError(errorResponse.message || 'Failed to create node');
+          return;
+        }
+        
+        // Success - reset form and refresh graph data
+        setNodeLabel('');
+        setNodeColor('#4287f5');
+        setNodeShape('circle');
+        setNodeSize(50);
+        setShowNodeForm(false);
+        await fetchGraphData();
+      } catch (err) {
+        console.error('Error creating node:', err);
+        setFormError('Failed to create node. Please try again.');
       }
-      
-      // Reset form
-      setNodeLabel('');
-      setNodeColor('#4287f5');
-      setNodeShape('circle');
-      setNodeSize(50);
-      setShowNodeForm(false);
-      
-      // Refetch graph data
-      await fetchGraphData();
-      
     } catch (err) {
-      console.error('Error creating node:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error in node creation process:', err);
+      setFormError('An unexpected error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -607,7 +665,7 @@ const ThreadDetail = () => {
     if (!editingNodeId) return;
     
     setIsEditSubmitting(true);
-    setError(null);
+    setFormError(null);
     
     try {
       const nodeData = {
@@ -618,37 +676,53 @@ const ThreadDetail = () => {
         size: editNodeSize
       };
       
-      const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.update(editingNodeId), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(nodeData)
-      });
-      
-      if (!response.ok) {
-        if (handleAuthError(response, navigate)) return;
+      // Try to update the node without changing page state on error
+      try {
+        const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.update(editingNodeId), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(nodeData)
+        });
         
-        const errorResponse = await response.json();
-        const errorMessage = errorResponse.message || 'Failed to update node';
-        setError(errorMessage);
-        return;
+        if (!response.ok) {
+          // Handle authentication errors but skip redirects
+          if (response.status === 401) {
+            setFormError("Authentication error. Please log in again.");
+            return;
+          }
+          
+          const errorResponse = await response.json();
+          
+          // Look for profanity-related messages in the error
+          if (errorResponse && errorResponse.message && 
+             (errorResponse.message.toLowerCase().includes('inappropriate language') ||
+              errorResponse.message.toLowerCase().includes('profanity'))) {
+            setFormError("Your node label contains inappropriate language. Please revise it.");
+            return;
+          }
+          
+          setFormError(errorResponse.message || 'Failed to update node');
+          return;
+        }
+        
+        // Success - close modal and refresh graph
+        setShowNodeEditModal(false);
+        
+        // Show details again if we were looking at them before
+        if (returnToDetailsAfterEdit && selectedNodeId) {
+          setShowNodeDetails(true);
+        }
+        
+        await fetchGraphData();
+      } catch (err) {
+        console.error('Error updating node:', err);
+        setFormError('Failed to update node. Please try again.');
       }
-      
-      // Close edit form
-      setShowNodeEditModal(false);
-      
-      // Show details again if we were looking at them before
-      if (returnToDetailsAfterEdit && selectedNodeId) {
-        setShowNodeDetails(true);
-      }
-      
-      // Refetch graph data
-      await fetchGraphData();
-      
     } catch (err) {
-      console.error('Error updating node:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Error in node edit process:', err);
+      setFormError('An unexpected error occurred. Please try again.');
     } finally {
       setIsEditSubmitting(false);
     }
@@ -719,57 +793,9 @@ const ThreadDetail = () => {
 
   // Handle edge update
   const handleEdgeUpdate = useCallback(() => {
-    // Refresh graph data
-    const fetchGraphData = async () => {
-      if (!id) return;
-      
-      try {
-        setGraphLoading(true);
-        
-        // Fetch nodes
-        const nodesResponse = await fetchWithAuth(API_ENDPOINTS.graph.nodes.getByThread(Number(id)));
-        if (!nodesResponse.ok) {
-          if (handleAuthError(nodesResponse, navigate)) return;
-          console.error('Failed to load graph nodes');
-          return;
-        }
-        const nodesData = await nodesResponse.json();
-        setGraphNodes(nodesData.data || []);
-        
-        // Fetch edges
-        const edgesResponse = await fetchWithAuth(API_ENDPOINTS.graph.edges.getByThread(Number(id)));
-        if (!edgesResponse.ok) {
-          if (handleAuthError(edgesResponse, navigate)) return;
-          console.error('Failed to load graph edges');
-          return;
-        }
-        const edgesData = await edgesResponse.json();
-        
-        // Ensure all edges have a color property
-        const edgesWithColor = (edgesData.data || []).map((edge: {
-          id: number;
-          sourceNodeId: number;
-          targetNodeId: number;
-          label: string;
-          type: string;
-          weight: number;
-          color?: string;
-          threadId: number;
-        }) => ({
-          ...edge,
-          color: edge.color || '#555555' // Default color if not present
-        }));
-        
-        setGraphEdges(edgesWithColor);
-      } catch (err) {
-        console.error('Error fetching graph data:', err);
-      } finally {
-        setGraphLoading(false);
-      }
-    };
-    
+    // Call the fetchGraphData function to refresh graph data
     fetchGraphData();
-  }, [id, navigate]);
+  }, [id, navigate, fetchGraphData]);
 
   const handleFollowToggle = async () => {
     if (!thread || !currentUser) return;
@@ -828,7 +854,16 @@ const ThreadDetail = () => {
     if (error) {
       return (
         <div className="container mx-auto px-4 py-8">
-          <ProfanityErrorMessage message={error} />
+          <div className="p-4 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center">
+              <div className="text-red-600 mr-3">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-red-800">{error}</p>
+            </div>
+          </div>
         </div>
       );
     }
@@ -1009,16 +1044,27 @@ const ThreadDetail = () => {
           </button>
         </div>
         
-        {error && <ProfanityErrorMessage message={error} />}
+        {formError && (
+          <div className="mb-6 p-3 bg-red-50 border-l-4 border-red-500 rounded-md shadow-sm text-red-700 animate-fade-in">
+            <div className="flex items-center">
+              <div className="text-red-500 mr-3">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium">{formError}</p>
+            </div>
+          </div>
+        )}
         
         <form onSubmit={handleCreateNode}>
-          <div>
+          <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Node Label</label>
             <input
               type="text"
               value={nodeLabel}
               onChange={(e) => setNodeLabel(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 border ${formError ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} rounded-md focus:outline-none focus:ring-2`}
               placeholder="Enter node label"
               required
             />
@@ -1107,7 +1153,18 @@ const ThreadDetail = () => {
           </button>
         </div>
         
-        {error && <ProfanityErrorMessage message={error} />}
+        {formError && (
+          <div className="mb-6 p-3 bg-red-50 border-l-4 border-red-500 rounded-md shadow-sm text-red-700 animate-fade-in">
+            <div className="flex items-center">
+              <div className="text-red-500 mr-3">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium">{formError}</p>
+            </div>
+          </div>
+        )}
         
         <form onSubmit={handleSubmitNodeEdit}>
           <div className="mb-4">
@@ -1116,7 +1173,7 @@ const ThreadDetail = () => {
               type="text"
               value={editNodeLabel}
               onChange={(e) => setEditNodeLabel(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-3 py-2 border ${formError ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} rounded-md focus:outline-none focus:ring-2`}
               required
             />
           </div>

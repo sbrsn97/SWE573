@@ -1,6 +1,8 @@
 package com.swe573.tests;
 
 import com.swe573.dto.BatchNodeDTO;
+import com.swe573.dto.EdgeUpdateDTO;
+import com.swe573.models.Edge;
 import com.swe573.models.Node;
 import com.swe573.models.Thread;
 import com.swe573.repositories.EdgeRepository;
@@ -15,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import jakarta.persistence.EntityNotFoundException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +45,9 @@ public class GraphServiceTest {
 
     private Thread testThread;
     private Node testNode;
+    private Node sourceNode;
+    private Node targetNode;
+    private Edge testEdge;
     private BatchNodeDTO testNodeDTO;
 
     @BeforeEach
@@ -54,6 +60,28 @@ public class GraphServiceTest {
         testNode.setId(1L);
         testNode.setLabel("Test Node");
         testNode.setThread(testThread);
+
+        // Set up source and target nodes for edge tests
+        sourceNode = new Node();
+        sourceNode.setId(2L);
+        sourceNode.setLabel("Source Node");
+        sourceNode.setThread(testThread);
+
+        targetNode = new Node();
+        targetNode.setId(3L);
+        targetNode.setLabel("Target Node");
+        targetNode.setThread(testThread);
+
+        // Set up test edge
+        testEdge = new Edge();
+        testEdge.setId(1L);
+        testEdge.setSourceNode(sourceNode);
+        testEdge.setTargetNode(targetNode);
+        testEdge.setLabel("Test Edge");
+        testEdge.setType("default");
+        testEdge.setWeight(1);
+        testEdge.setColor("#555555");
+        testEdge.setThread(testThread);
 
         testNodeDTO = new BatchNodeDTO();
         testNodeDTO.setLabel("Test Node");
@@ -149,5 +177,99 @@ public class GraphServiceTest {
         verify(nlpService).containsProfanity("Bad Description");
         verify(threadRepository, never()).findById(anyLong());
         verify(nodeRepository, never()).save(any(Node.class));
+    }
+
+    // New tests for updateEdge method
+    @Test
+    void updateEdge_Success() {
+        // Arrange
+        EdgeUpdateDTO updateDTO = new EdgeUpdateDTO();
+        updateDTO.setLabel("Updated Edge");
+        updateDTO.setType("smoothstep");
+        updateDTO.setWeight(3);
+        updateDTO.setColor("#FF0000");
+        updateDTO.setWikidataPropertyId("P123");
+
+        when(edgeRepository.findById(1L)).thenReturn(Optional.of(testEdge));
+        when(edgeRepository.save(any(Edge.class))).thenReturn(testEdge);
+        when(nlpService.containsProfanity("Updated Edge")).thenReturn(false);
+
+        // Act
+        Edge result = graphService.updateEdge(1L, updateDTO);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals("Updated Edge", result.getLabel());
+        assertEquals("smoothstep", result.getType());
+        assertEquals(3, result.getWeight());
+        assertEquals("#FF0000", result.getColor());
+        assertEquals("P123", result.getWikidataPropertyId());
+        verify(edgeRepository).findById(1L);
+        verify(edgeRepository).save(testEdge);
+        verify(nlpService).containsProfanity("Updated Edge");
+    }
+
+    @Test
+    void updateEdge_OnlyUpdateSomeFields_Success() {
+        // Arrange
+        EdgeUpdateDTO updateDTO = new EdgeUpdateDTO();
+        updateDTO.setLabel("Updated Edge");
+        // Leave other fields null to ensure they don't change
+
+        when(edgeRepository.findById(1L)).thenReturn(Optional.of(testEdge));
+        when(edgeRepository.save(any(Edge.class))).thenReturn(testEdge);
+        when(nlpService.containsProfanity("Updated Edge")).thenReturn(false);
+
+        // Act
+        Edge result = graphService.updateEdge(1L, updateDTO);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals("Updated Edge", result.getLabel());
+        // Original values should remain
+        assertEquals("default", result.getType());
+        assertEquals(1, result.getWeight());
+        assertEquals("#555555", result.getColor());
+        verify(edgeRepository).findById(1L);
+        verify(edgeRepository).save(testEdge);
+        verify(nlpService).containsProfanity("Updated Edge");
+    }
+
+    @Test
+    void updateEdge_WithProfanity_ThrowsException() {
+        // Arrange
+        EdgeUpdateDTO updateDTO = new EdgeUpdateDTO();
+        updateDTO.setLabel("Bad Edge Label");
+
+        when(nlpService.containsProfanity("Bad Edge Label")).thenReturn(true);
+
+        // Act & Assert
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            graphService.updateEdge(1L, updateDTO);
+        });
+
+        assertEquals("Edge contains inappropriate language and cannot be updated.", exception.getMessage());
+        verify(nlpService).containsProfanity("Bad Edge Label");
+        verify(edgeRepository, never()).save(any(Edge.class));
+    }
+
+    @Test
+    void updateEdge_EdgeNotFound_ThrowsException() {
+        // Arrange
+        EdgeUpdateDTO updateDTO = new EdgeUpdateDTO();
+        updateDTO.setLabel("Updated Edge");
+
+        when(edgeRepository.findById(1L)).thenReturn(Optional.empty());
+        when(nlpService.containsProfanity("Updated Edge")).thenReturn(false);
+
+        // Act & Assert
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class, () -> {
+            graphService.updateEdge(1L, updateDTO);
+        });
+
+        assertEquals("Edge not found", exception.getMessage());
+        verify(nlpService).containsProfanity("Updated Edge");
+        verify(edgeRepository).findById(1L);
+        verify(edgeRepository, never()).save(any(Edge.class));
     }
 } 

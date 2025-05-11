@@ -24,13 +24,16 @@ public class GraphController {
     @PostMapping("/threads/{threadId}/nodes")
     public ResponseEntity<ApiResponse<NodeDTO>> createNode(
             @PathVariable Long threadId,
-            @RequestParam String label,
-            @RequestParam Double xPosition,
-            @RequestParam Double yPosition,
-            @RequestParam(required = false) String color,
-            @RequestParam(required = false) String shape,
-            @RequestParam(required = false) Integer size) {
-        Node node = graphService.createNode(threadId, label, xPosition, yPosition, color, shape, size);
+            @RequestBody NodeDTO nodeDTO) {
+        Node node = graphService.createNode(
+            threadId, 
+            nodeDTO.getLabel(), 
+            nodeDTO.getXPosition(), 
+            nodeDTO.getYPosition(), 
+            nodeDTO.getColor(),
+            nodeDTO.getShape(), 
+            nodeDTO.getSize()
+        );
         return ResponseEntity.ok(ApiResponse.success("Node created successfully", NodeDTO.fromEntity(node)));
     }
 

@@ -267,7 +267,8 @@ public class GraphService {
             throw new IllegalArgumentException("Edge contains inappropriate language and cannot be updated.");
         }
         
-        Edge edge = edgeRepository.findById(edgeId)
+        // Use the method that eagerly loads the related entities to prevent validation issues
+        Edge edge = edgeRepository.findByIdWithNodesAndThreads(edgeId)
                 .orElseThrow(() -> new EntityNotFoundException("Edge not found"));
 
         if (updateDTO.getLabel() != null) {

@@ -192,16 +192,7 @@ const ProfanityManagement: React.FC = () => {
   }, [success, error]);
 
   // Render the content for MainLayout
-  const renderContent = (user: User) => {
-    // Check if user is an admin
-    if (user.role !== 'ADMIN') {
-      return (
-        <div className="bg-red-50 border border-red-200 text-red-800 p-6 rounded-lg">
-          <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
-          <p>You don't have permission to access this page. This page is only available to administrators.</p>
-        </div>
-      );
-    }
+  const renderContent = () => {
     
     return (
       <div className="container mx-auto px-4 py-8">
@@ -398,7 +389,7 @@ const ProfanityManagement: React.FC = () => {
     );
   };
 
-  return <MainLayout>{renderContent}</MainLayout>;
+  return <MainLayout>{renderContent()}</MainLayout>;
 };
 
 export default ProfanityManagement; 

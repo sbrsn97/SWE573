@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
@@ -24,7 +24,7 @@ export interface User {
 }
 
 interface MainLayoutProps {
-  children: (user: User) => React.ReactNode;
+  children: ReactNode;
 }
 
 function MainLayout({ children }: MainLayoutProps) {
@@ -85,7 +85,7 @@ function MainLayout({ children }: MainLayoutProps) {
       <div className="flex pt-16">
         <Sidebar />
         <main className="flex-1 p-8 ml-64">
-          {children(user)}
+          {children}
         </main>
       </div>
     </div>

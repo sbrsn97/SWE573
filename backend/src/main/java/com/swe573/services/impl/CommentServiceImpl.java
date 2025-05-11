@@ -12,6 +12,7 @@ import com.swe573.repositories.NodeRepository;
 import com.swe573.services.CommentService;
 import com.swe573.services.NotificationService;
 import com.swe573.services.NlpService;
+import com.swe573.services.ThreadHistoryService;
 import com.swe573.exceptions.ResourceNotFoundException;
 import com.swe573.exceptions.UnauthorizedException;
 import com.swe573.models.enums.NotificationType;
@@ -43,6 +44,9 @@ public class CommentServiceImpl implements CommentService {
 
     @Autowired
     private NlpService nlpService;
+    
+    @Autowired
+    private ThreadHistoryService threadHistoryService;
 
     @Override
     @Transactional
@@ -113,6 +117,14 @@ public class CommentServiceImpl implements CommentService {
                 author.getUsername()
             );
         }
+        
+        // Log comment creation to thread history
+        threadHistoryService.logCommentCreation(
+            thread,
+            author,
+            savedComment.getId(),
+            savedComment.getContent()
+        );
 
         return savedComment;
     }
@@ -152,9 +164,21 @@ public class CommentServiceImpl implements CommentService {
         
         Comment comment = commentRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
-            
+        
+        String oldContent = comment.getContent();
         comment.setContent(newContent);
-        return commentRepository.save(comment);
+        Comment updatedComment = commentRepository.save(comment);
+        
+        // Log comment update to thread history
+        threadHistoryService.logCommentUpdate(
+            comment.getThread(),
+            comment.getAuthor(),
+            comment.getId(),
+            oldContent,
+            newContent
+        );
+        
+        return updatedComment;
     }
 
     @Override
@@ -166,9 +190,22 @@ public class CommentServiceImpl implements CommentService {
         if (!comment.getAuthor().getId().equals(userId)) {
             throw new UnauthorizedException("You don't have permission to delete this comment");
         }
+        
+        // Store comment content before deletion for history
+        String commentContent = comment.getContent();
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         comment.softDeleteByUser();
         commentRepository.save(comment);
+        
+        // Log comment deletion to thread history
+        threadHistoryService.logCommentDeletion(
+            comment.getThread(),
+            user,
+            comment.getId(),
+            commentContent
+        );
     }
 
     @Override
@@ -176,6 +213,17 @@ public class CommentServiceImpl implements CommentService {
     public void hardDeleteComment(Long id) {
         Comment comment = findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
+        
+        // Store comment content before deletion for history
+        String commentContent = comment.getContent();
+        
+        // Log comment deletion to thread history (using system user or comment author)
+        threadHistoryService.logCommentDeletion(
+            comment.getThread(),
+            comment.getAuthor(),
+            comment.getId(),
+            commentContent
+        );
         
         comment.hardDelete();
         commentRepository.delete(comment);

@@ -5,7 +5,10 @@ import com.swe573.models.Thread;
 import com.swe573.repositories.NodeRepository;
 import com.swe573.repositories.EdgeRepository;
 import com.swe573.repositories.ThreadRepository;
+import com.swe573.repositories.UserRepository;
 import com.swe573.dto.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,11 +24,19 @@ public class GraphService {
     private final NodeRepository nodeRepository;
     private final EdgeRepository edgeRepository;
     private final ThreadRepository threadRepository;
+    private final UserRepository userRepository;
     private final NlpService nlpService;
+    private final ThreadHistoryService threadHistoryService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Node Operations
     @Transactional
     public Node createNode(Long threadId, String label, Double xPosition, Double yPosition, String color, String shape, Integer size) {
+        return createNode(threadId, null, label, xPosition, yPosition, color, shape, size);
+    }
+    
+    @Transactional
+    public Node createNode(Long threadId, Long userId, String label, Double xPosition, Double yPosition, String color, String shape, Integer size) {
         // Check for profanity in node label
         if (nlpService.containsProfanity(label)) {
             throw new IllegalArgumentException("Node label contains inappropriate language and cannot be created.");
@@ -43,20 +54,49 @@ public class GraphService {
         node.setShape(shape);
         node.setSize(size);
 
-        return nodeRepository.save(node);
+        Node savedNode = nodeRepository.save(node);
+        
+        // Log node creation to history if user ID is provided
+        if (userId != null) {
+            try {
+                User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                
+                String nodeDetails = objectMapper.writeValueAsString(NodeDTO.fromEntity(savedNode));
+                threadHistoryService.logNodeCreation(thread, user, savedNode.getId(), nodeDetails);
+            } catch (JsonProcessingException e) {
+                // Log error but don't fail the operation
+                System.err.println("Error serializing node for history: " + e.getMessage());
+            } catch (Exception e) {
+                // Log error but don't fail the operation
+                System.err.println("Error logging node creation: " + e.getMessage());
+            }
+        }
+
+        return savedNode;
     }
 
     @Transactional
     public List<Node> createNodesBatch(Long threadId, List<BatchNodeDTO> nodes) {
+        return createNodesBatch(threadId, null, nodes);
+    }
+    
+    @Transactional
+    public List<Node> createNodesBatch(Long threadId, Long userId, List<BatchNodeDTO> nodes) {
         Thread thread = threadRepository.findById(threadId)
                 .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
 
+        // Get user if userId is provided
+        User user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        }
+
         List<Node> createdNodes = new ArrayList<>();
         for (BatchNodeDTO nodeDTO : nodes) {
-            // Check for profanity in node label and description
-            if (nlpService.containsProfanity(nodeDTO.getLabel()) || 
-                (nodeDTO.getDescription() != null && nlpService.containsProfanity(nodeDTO.getDescription()))) {
-                throw new IllegalArgumentException("Node contains inappropriate language and cannot be created.");
+            if (nlpService.containsProfanity(nodeDTO.getLabel())) {
+                throw new IllegalArgumentException("Node label contains inappropriate language and cannot be created.");
             }
             
             Node node = new Node();
@@ -68,32 +108,68 @@ public class GraphService {
             node.setShape(nodeDTO.getShape());
             node.setSize(nodeDTO.getSize());
 
-            // Create node details if wikidata entity or description is provided
-            if (nodeDTO.getWikidataEntityId() != null || nodeDTO.getDescription() != null) {
+            // Handle details if provided
+            if (nodeDTO.getDescription() != null || nodeDTO.getWikidataEntityId() != null) {
                 NodeDetails details = new NodeDetails();
                 details.setNode(node);
-                details.setWikidataEntityId(nodeDTO.getWikidataEntityId());
+                details.setLabel(nodeDTO.getLabel());
                 details.setDescription(nodeDTO.getDescription());
+                details.setWikidataEntityId(nodeDTO.getWikidataEntityId());
                 node.setDetails(details);
             }
 
-            createdNodes.add(nodeRepository.save(node));
+            Node savedNode = nodeRepository.save(node);
+            createdNodes.add(savedNode);
+            
+            // Log node creation to history if user is available
+            if (user != null) {
+                try {
+                    String nodeDetails = objectMapper.writeValueAsString(NodeDTO.fromEntity(savedNode));
+                    threadHistoryService.logNodeCreation(thread, user, savedNode.getId(), nodeDetails);
+                } catch (JsonProcessingException e) {
+                    // Log error but don't fail the operation
+                    System.err.println("Error serializing node for history: " + e.getMessage());
+                } catch (Exception e) {
+                    // Log error but don't fail the operation
+                    System.err.println("Error logging node creation: " + e.getMessage());
+                }
+            }
         }
         return createdNodes;
     }
 
     @Transactional
     public Node updateNode(Long nodeId, NodeUpdateDTO updateDTO) {
-        // Check for profanity in updated node label and description
-        if ((updateDTO.getLabel() != null && nlpService.containsProfanity(updateDTO.getLabel())) || 
-            (updateDTO.getDescription() != null && nlpService.containsProfanity(updateDTO.getDescription()))) {
-            throw new IllegalArgumentException("Node contains inappropriate language and cannot be updated.");
+        return updateNode(nodeId, null, updateDTO);
+    }
+    
+    @Transactional
+    public Node updateNode(Long nodeId, Long userId, NodeUpdateDTO updateDTO) {
+        // Check for profanity in node label
+        if (updateDTO.getLabel() != null && nlpService.containsProfanity(updateDTO.getLabel())) {
+            throw new IllegalArgumentException("Node label contains inappropriate language and cannot be updated.");
         }
         
         Node node = nodeRepository.findById(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
+        
+        // Store the original state for history logging
+        Node originalNode = new Node();
+        originalNode.setId(node.getId());
+        originalNode.setLabel(node.getLabel());
+        originalNode.setXPosition(node.getXPosition());
+        originalNode.setYPosition(node.getYPosition());
+        originalNode.setColor(node.getColor());
+        originalNode.setShape(node.getShape());
+        originalNode.setSize(node.getSize());
+        if (node.getDetails() != null) {
+            NodeDetails originalDetails = new NodeDetails();
+            originalDetails.setWikidataEntityId(node.getDetails().getWikidataEntityId());
+            originalDetails.setDescription(node.getDetails().getDescription());
+            originalNode.setDetails(originalDetails);
+        }
 
-        // Update node fields
+        // Update node properties
         if (updateDTO.getLabel() != null) {
             node.setLabel(updateDTO.getLabel());
         }
@@ -113,7 +189,6 @@ public class GraphService {
             node.setSize(updateDTO.getSize());
         }
 
-        // Handle node details
         if (updateDTO.getWikidataEntityId() != null || updateDTO.getDescription() != null) {
             // Update node details if they exist or create if needed
             if (node.getDetails() == null) {
@@ -139,20 +214,86 @@ public class GraphService {
         // Save and flush to ensure the entity is persisted immediately
         Node savedNode = nodeRepository.saveAndFlush(node);
         
+        // Log node update to history if user ID is provided
+        if (userId != null) {
+            try {
+                User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                
+                String beforeState = objectMapper.writeValueAsString(NodeDTO.fromEntity(originalNode));
+                String afterState = objectMapper.writeValueAsString(NodeDTO.fromEntity(savedNode));
+                
+                threadHistoryService.logNodeUpdate(
+                    savedNode.getThread(),
+                    user,
+                    savedNode.getId(),
+                    beforeState,
+                    afterState
+                );
+            } catch (JsonProcessingException e) {
+                // Log error but don't fail the operation
+                System.err.println("Error serializing node for history: " + e.getMessage());
+            } catch (Exception e) {
+                // Log error but don't fail the operation
+                System.err.println("Error logging node update: " + e.getMessage());
+            }
+        }
+        
         // Return the updated node
         return savedNode;
     }
 
     @Transactional
     public void deleteNode(Long nodeId) {
+        deleteNode(nodeId, null);
+    }
+    
+    @Transactional
+    public void deleteNode(Long nodeId, Long userId) {
         Node node = nodeRepository.findById(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
+        
+        // Store the original state for history logging
+        String beforeState = null;
+        User user = null;
+        
+        if (userId != null) {
+            try {
+                user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                beforeState = objectMapper.writeValueAsString(NodeDTO.fromEntity(node));
+            } catch (JsonProcessingException e) {
+                // Log error but don't fail the operation
+                System.err.println("Error serializing node for history: " + e.getMessage());
+            } catch (Exception e) {
+                // Log error but don't fail the operation
+                System.err.println("Error preparing for node deletion log: " + e.getMessage());
+            }
+        }
 
         // Delete all edges connected to this node
         edgeRepository.deleteBySourceNodeOrTargetNode(node, node);
         
+        // Get thread reference before deleting the node
+        Thread thread = node.getThread();
+        
         // Delete the node
         nodeRepository.delete(node);
+        
+        // Log node deletion to history if user ID is provided
+        if (userId != null && user != null && beforeState != null) {
+            try {
+                threadHistoryService.logNodeDeletion(
+                    thread,
+                    user,
+                    nodeId,
+                    beforeState
+                );
+            } catch (Exception e) {
+                // Log error but don't fail the operation
+                System.err.println("Error logging node deletion: " + e.getMessage());
+            }
+        }
     }
 
     public Node getNode(Long nodeId) {
@@ -180,6 +321,11 @@ public class GraphService {
     // Edge Operations
     @Transactional
     public Edge createEdge(Long threadId, Long sourceNodeId, Long targetNodeId, String label, String type, Integer weight, String color, String wikidataPropertyId) {
+        return createEdge(threadId, null, sourceNodeId, targetNodeId, label, type, weight, color, wikidataPropertyId);
+    }
+    
+    @Transactional
+    public Edge createEdge(Long threadId, Long userId, Long sourceNodeId, Long targetNodeId, String label, String type, Integer weight, String color, String wikidataPropertyId) {
         // Check for profanity in edge label
         if (label != null && nlpService.containsProfanity(label)) {
             throw new IllegalArgumentException("Edge label contains inappropriate language and cannot be created.");
@@ -214,13 +360,44 @@ public class GraphService {
         edge.setWikidataPropertyId(wikidataPropertyId);
         edge.setThread(thread);
 
-        return edgeRepository.save(edge);
+        Edge savedEdge = edgeRepository.save(edge);
+        
+        // Log edge creation to history if user ID is provided
+        if (userId != null) {
+            try {
+                User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                
+                String edgeDetails = objectMapper.writeValueAsString(EdgeDTO.fromEntity(savedEdge));
+                threadHistoryService.logEdgeCreation(thread, user, savedEdge.getId(), edgeDetails);
+            } catch (JsonProcessingException e) {
+                // Log error but don't fail the operation
+                System.err.println("Error serializing edge for history: " + e.getMessage());
+            } catch (Exception e) {
+                // Log error but don't fail the operation
+                System.err.println("Error logging edge creation: " + e.getMessage());
+            }
+        }
+
+        return savedEdge;
     }
 
     @Transactional
     public List<Edge> createEdgesBatch(Long threadId, List<BatchEdgeDTO> edges) {
+        return createEdgesBatch(threadId, null, edges);
+    }
+    
+    @Transactional
+    public List<Edge> createEdgesBatch(Long threadId, Long userId, List<BatchEdgeDTO> edges) {
         Thread thread = threadRepository.findById(threadId)
                 .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
+        
+        // Get user if userId is provided
+        User user = null;
+        if (userId != null) {
+            user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        }
 
         List<Edge> createdEdges = new ArrayList<>();
         for (BatchEdgeDTO edgeDTO : edges) {
@@ -255,13 +432,33 @@ public class GraphService {
             edge.setWikidataPropertyId(edgeDTO.getWikidataPropertyId());
             edge.setThread(thread);
 
-            createdEdges.add(edgeRepository.save(edge));
+            Edge savedEdge = edgeRepository.save(edge);
+            createdEdges.add(savedEdge);
+            
+            // Log edge creation to history if user is available
+            if (user != null) {
+                try {
+                    String edgeDetails = objectMapper.writeValueAsString(EdgeDTO.fromEntity(savedEdge));
+                    threadHistoryService.logEdgeCreation(thread, user, savedEdge.getId(), edgeDetails);
+                } catch (JsonProcessingException e) {
+                    // Log error but don't fail the operation
+                    System.err.println("Error serializing edge for history: " + e.getMessage());
+                } catch (Exception e) {
+                    // Log error but don't fail the operation
+                    System.err.println("Error logging edge creation: " + e.getMessage());
+                }
+            }
         }
         return createdEdges;
     }
 
     @Transactional
     public Edge updateEdge(Long edgeId, EdgeUpdateDTO updateDTO) {
+        return updateEdge(edgeId, null, updateDTO);
+    }
+    
+    @Transactional
+    public Edge updateEdge(Long edgeId, Long userId, EdgeUpdateDTO updateDTO) {
         // Check for profanity in updated edge label
         if (updateDTO.getLabel() != null && nlpService.containsProfanity(updateDTO.getLabel())) {
             throw new IllegalArgumentException("Edge contains inappropriate language and cannot be updated.");
@@ -270,6 +467,15 @@ public class GraphService {
         // Use the method that eagerly loads the related entities to prevent validation issues
         Edge edge = edgeRepository.findByIdWithNodesAndThreads(edgeId)
                 .orElseThrow(() -> new EntityNotFoundException("Edge not found"));
+        
+        // Store the original state for history logging
+        Edge originalEdge = new Edge();
+        originalEdge.setId(edge.getId());
+        originalEdge.setLabel(edge.getLabel());
+        originalEdge.setType(edge.getType());
+        originalEdge.setWeight(edge.getWeight());
+        originalEdge.setColor(edge.getColor());
+        originalEdge.setWikidataPropertyId(edge.getWikidataPropertyId());
 
         if (updateDTO.getLabel() != null) {
             edge.setLabel(updateDTO.getLabel());
@@ -287,15 +493,84 @@ public class GraphService {
             edge.setWikidataPropertyId(updateDTO.getWikidataPropertyId());
         }
 
-        return edgeRepository.save(edge);
+        Edge savedEdge = edgeRepository.save(edge);
+        
+        // Log edge update to history if user ID is provided
+        if (userId != null) {
+            try {
+                User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                
+                String beforeState = objectMapper.writeValueAsString(EdgeDTO.fromEntity(originalEdge));
+                String afterState = objectMapper.writeValueAsString(EdgeDTO.fromEntity(savedEdge));
+                
+                threadHistoryService.logEdgeUpdate(
+                    savedEdge.getThread(),
+                    user,
+                    savedEdge.getId(),
+                    beforeState,
+                    afterState
+                );
+            } catch (JsonProcessingException e) {
+                // Log error but don't fail the operation
+                System.err.println("Error serializing edge for history: " + e.getMessage());
+            } catch (Exception e) {
+                // Log error but don't fail the operation
+                System.err.println("Error logging edge update: " + e.getMessage());
+            }
+        }
+
+        return savedEdge;
     }
 
     @Transactional
     public void deleteEdge(Long edgeId) {
+        deleteEdge(edgeId, null);
+    }
+    
+    @Transactional
+    public void deleteEdge(Long edgeId, Long userId) {
         Edge edge = edgeRepository.findById(edgeId)
                 .orElseThrow(() -> new EntityNotFoundException("Edge not found"));
-
+        
+        // Store the original state for history logging
+        String beforeState = null;
+        User user = null;
+        
+        if (userId != null) {
+            try {
+                user = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                beforeState = objectMapper.writeValueAsString(EdgeDTO.fromEntity(edge));
+            } catch (JsonProcessingException e) {
+                // Log error but don't fail the operation
+                System.err.println("Error serializing edge for history: " + e.getMessage());
+            } catch (Exception e) {
+                // Log error but don't fail the operation
+                System.err.println("Error preparing for edge deletion log: " + e.getMessage());
+            }
+        }
+        
+        // Get thread reference before deleting the edge
+        Thread thread = edge.getThread();
+        
+        // Delete the edge
         edgeRepository.delete(edge);
+        
+        // Log edge deletion to history if user ID is provided
+        if (userId != null && user != null && beforeState != null) {
+            try {
+                threadHistoryService.logEdgeDeletion(
+                    thread,
+                    user,
+                    edgeId,
+                    beforeState
+                );
+            } catch (Exception e) {
+                // Log error but don't fail the operation
+                System.err.println("Error logging edge deletion: " + e.getMessage());
+            }
+        }
     }
 
     public List<Edge> getEdgesByThread(Long threadId) {
@@ -308,88 +583,22 @@ public class GraphService {
 
         return edgeRepository.findBySourceNodeOrTargetNode(node, node);
     }
-
-    public List<Edge> searchEdges(Long threadId, String query) {
-        List<Edge> edges = edgeRepository.findByThread_Id(threadId);
-        return edges.stream()
-                .filter(edge -> 
-                    (edge.getLabel() != null && edge.getLabel().toLowerCase().contains(query.toLowerCase())) ||
-                    (edge.getType() != null && edge.getType().toLowerCase().contains(query.toLowerCase()))
-                )
-                .collect(Collectors.toList());
-    }
-
-    // Graph Analysis
-    public Map<String, Object> getGraphAnalysis(Long threadId) {
-        List<Node> nodes = nodeRepository.findByThread_Id(threadId);
-        List<Edge> edges = edgeRepository.findByThread_Id(threadId);
-
-        Map<String, Object> analysis = new HashMap<>();
-        analysis.put("totalNodes", nodes.size());
-        analysis.put("totalEdges", edges.size());
-
-        // Calculate connected components
-        Set<Set<Node>> components = new HashSet<>();
-        Set<Node> visited = new HashSet<>();
-
-        for (Node node : nodes) {
-            if (!visited.contains(node)) {
-                Set<Node> component = new HashSet<>();
-                dfs(node, component, visited, edges);
-                components.add(component);
-            }
-        }
-
-        analysis.put("connectedComponents", components.size());
-
-        // Calculate node degrees
-        Map<Node, Integer> nodeDegrees = new HashMap<>();
-        for (Edge edge : edges) {
-            nodeDegrees.merge(edge.getSourceNode(), 1, Integer::sum);
-            nodeDegrees.merge(edge.getTargetNode(), 1, Integer::sum);
-        }
-
-        analysis.put("averageDegree", nodeDegrees.values().stream()
-                .mapToInt(Integer::intValue)
-                .average()
-                .orElse(0.0));
-
-        return analysis;
-    }
-
+    
     public Set<Node> getConnectedNodes(Long nodeId) {
         Node node = nodeRepository.findById(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
-
-        Set<Node> connectedNodes = new HashSet<>();
+        
         List<Edge> edges = edgeRepository.findBySourceNodeOrTargetNode(node, node);
-
+        
+        Set<Node> connectedNodes = new HashSet<>();
         for (Edge edge : edges) {
-            if (edge.getSourceNode().equals(node)) {
+            if (edge.getSourceNode().getId().equals(nodeId)) {
                 connectedNodes.add(edge.getTargetNode());
             } else {
                 connectedNodes.add(edge.getSourceNode());
             }
         }
-
+        
         return connectedNodes;
-    }
-
-    private void dfs(Node node, Set<Node> component, Set<Node> visited, List<Edge> edges) {
-        visited.add(node);
-        component.add(node);
-
-        for (Edge edge : edges) {
-            Node neighbor = null;
-            if (edge.getSourceNode().equals(node)) {
-                neighbor = edge.getTargetNode();
-            } else if (edge.getTargetNode().equals(node)) {
-                neighbor = edge.getSourceNode();
-            }
-
-            if (neighbor != null && !visited.contains(neighbor)) {
-                dfs(neighbor, component, visited, edges);
-            }
-        }
     }
 } 

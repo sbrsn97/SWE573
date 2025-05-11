@@ -1457,20 +1457,18 @@ const UserProfile = () => {
 
   return (
     <MainLayout>
-      {() => (
-        loading ? (
-          <div className="flex justify-center items-center py-6">
-            <p className="text-gray-600">Loading profile...</p>
+      {loading ? (
+        <div className="flex justify-center items-center py-6">
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      ) : user ? (
+        renderProfile(user)
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm p-6 max-w-md">
+          <div className="text-center py-4 text-gray-500">
+            {error || 'User not found'}
           </div>
-        ) : user ? (
-          renderProfile(user)
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm p-6 max-w-md">
-            <div className="text-center py-4 text-gray-500">
-              {error || 'User not found'}
-            </div>
-          </div>
-        )
+        </div>
       )}
     </MainLayout>
   );

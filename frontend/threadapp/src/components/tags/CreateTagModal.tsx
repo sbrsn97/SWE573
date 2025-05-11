@@ -140,6 +140,12 @@ interface WikidataSearchResponse {
 interface CreateTagModalProps {
   onClose: () => void;
   onTagCreated: (tag: Tag) => void;
+  position?: {
+    top?: number;
+    left?: number;
+    right?: number;
+    bottom?: number;
+  };
 }
 
 interface ApiResponse<T> {
@@ -158,7 +164,7 @@ interface Tag {
   wikidataEntityId: string;
 }
 
-const CreateTagModal = ({ onClose, onTagCreated }: CreateTagModalProps) => {
+const CreateTagModal = ({ onClose, onTagCreated, position }: CreateTagModalProps) => {
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
   const [colorCodeString, setColorCodeString] = useState('#3B82F6'); // Default to blue
@@ -174,6 +180,7 @@ const CreateTagModal = ({ onClose, onTagCreated }: CreateTagModalProps) => {
   const searchResultsRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const [dropdownPosition, setDropdownPosition] = useState({
     top: 0,
@@ -454,8 +461,16 @@ const CreateTagModal = ({ onClose, onTagCreated }: CreateTagModalProps) => {
   }, [showColorPicker]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[95vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center z-[100]" style={{ justifyContent: 'flex-start' }}>
+      <div 
+        ref={modalRef}
+        className="bg-white rounded-xl shadow-xl w-full max-h-[95vh] overflow-y-auto"
+        style={{
+          maxWidth: '450px',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          marginLeft: '250px' // Position close to sidebar
+        }}
+      >
         <div className="sticky top-0 bg-white z-10 p-4 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Create New Tag</h2>

@@ -12,6 +12,7 @@ import com.swe573.repositories.VoteRepository;
 import com.swe573.repositories.CommentRepository;
 import com.swe573.services.VoteService;
 import com.swe573.services.NotificationService;
+import com.swe573.services.ThreadHistoryService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext;
@@ -31,6 +32,7 @@ public class VoteServiceImpl implements VoteService {
     private final ThreadRepository threadRepository;
     private final CommentRepository commentRepository;
     private final NotificationService notificationService;
+    private final ThreadHistoryService threadHistoryService;
     
     @PersistenceContext
     private EntityManager entityManager;
@@ -40,12 +42,14 @@ public class VoteServiceImpl implements VoteService {
                           UserRepository userRepository, 
                           ThreadRepository threadRepository, 
                           CommentRepository commentRepository, 
-                          NotificationService notificationService) {
+                          NotificationService notificationService,
+                          ThreadHistoryService threadHistoryService) {
         this.voteRepository = voteRepository;
         this.userRepository = userRepository;
         this.threadRepository = threadRepository;
         this.commentRepository = commentRepository;
         this.notificationService = notificationService;
+        this.threadHistoryService = threadHistoryService;
     }
 
     @Override
@@ -112,6 +116,10 @@ public class VoteServiceImpl implements VoteService {
                 );
                 
                 Vote savedVote = voteRepository.save(vote);
+                
+                // Log vote change to history
+                threadHistoryService.logThreadVote(thread, user, type == VoteType.UPVOTE);
+                
                 System.out.println("DEBUG: Vote updated successfully");
                 return savedVote;
             } else {
@@ -173,6 +181,10 @@ public class VoteServiceImpl implements VoteService {
                 try {
                     Vote savedVote = voteRepository.save(vote);
                     System.out.println("DEBUG: Successfully saved vote with ID " + savedVote.getId());
+                    
+                    // Log vote to history
+                    threadHistoryService.logThreadVote(thread, user, type == VoteType.UPVOTE);
+                    
                     return savedVote;
                 } catch (Exception e) {
                     System.err.println("DEBUG: Error saving vote: " + e.getMessage());
@@ -257,6 +269,10 @@ public class VoteServiceImpl implements VoteService {
             try {
                 Vote savedVote = voteRepository.save(vote);
                 System.out.println("EMERGENCY: Successfully saved vote with ID " + savedVote.getId());
+                
+                // Log comment vote to history
+                threadHistoryService.logCommentVote(comment.getThread(), user, comment.getId(), type == VoteType.UPVOTE);
+                
                 return savedVote;
             } catch (Exception e) {
                 System.err.println("EMERGENCY: Error saving vote: " + e.getMessage());
@@ -348,6 +364,9 @@ public class VoteServiceImpl implements VoteService {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
         
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
+        
         Optional<Vote> existingVote = voteRepository.findByUserIdAndThreadId(userId, threadId);
         if (existingVote.isPresent()) {
             Vote vote = existingVote.get();
@@ -379,6 +398,9 @@ public class VoteServiceImpl implements VoteService {
                 userId,
                 vote.getUser().getUsername()
             );
+            
+            // Log vote removal to history
+            threadHistoryService.logThreadRemoveVote(thread, user);
         }
     }
 
@@ -387,6 +409,9 @@ public class VoteServiceImpl implements VoteService {
     public void deleteVoteByUserAndComment(Long userId, Long commentId) {
         Comment comment = commentRepository.findById(commentId)
             .orElseThrow(() -> new EntityNotFoundException("Comment not found"));
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
         
         Optional<Vote> existingVote = voteRepository.findByUserIdAndCommentId(userId, commentId);
         if (existingVote.isPresent()) {
@@ -419,6 +444,9 @@ public class VoteServiceImpl implements VoteService {
                 userId,
                 vote.getUser().getUsername()
             );
+            
+            // Log comment vote removal to history
+            threadHistoryService.logCommentRemoveVote(comment.getThread(), user, comment.getId());
         }
     }
 
@@ -457,9 +485,7 @@ public class VoteServiceImpl implements VoteService {
 
     @Override
     public VoteType getUserVoteTypeOnThread(Long userId, Long threadId) {
-        // First make sure vote counts are correct
-        recalculateThreadVoteCounts(threadId);
-        
+        // Don't recalculate on every call
         return voteRepository.findByUserIdAndThreadId(userId, threadId)
             .map(Vote::getType)
             .orElse(null);
@@ -467,9 +493,7 @@ public class VoteServiceImpl implements VoteService {
 
     @Override
     public int getThreadVoteCount(Long threadId) {
-        // First make sure vote counts are correct
-        recalculateThreadVoteCounts(threadId);
-        
+        // Don't recalculate on every call
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
         return thread.getUpvoteCount() - thread.getDownvoteCount();

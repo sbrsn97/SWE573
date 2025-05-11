@@ -13,6 +13,8 @@ import com.swe573.repositories.UserRepository;
 import com.swe573.services.ThreadService;
 import com.swe573.services.VoteService;
 import com.swe573.services.NlpService;
+import com.swe573.services.ThreadHistoryService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -56,6 +58,20 @@ public class ThreadServiceImpl implements ThreadService {
     @Autowired
     private NlpService nlpService;
 
+    @Autowired
+    private ThreadHistoryService threadHistoryService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private String toJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            return obj.toString();
+        }
+    }
+
     @Override
     @Transactional
     public Thread createThread(ThreadDTO threadDTO) {
@@ -94,7 +110,12 @@ public class ThreadServiceImpl implements ThreadService {
         }
         thread.setTags(tags);
 
-        return threadRepository.save(thread);
+        Thread savedThread = threadRepository.save(thread);
+        
+        // Log thread creation to history
+        threadHistoryService.logThreadCreation(savedThread, author);
+        
+        return savedThread;
     }
 
     @Override
@@ -139,7 +160,13 @@ public class ThreadServiceImpl implements ThreadService {
     @Override
     @Transactional
     public Thread updateThread(Long id, ThreadDTO threadDTO) {
-        // Check for profanity in updated title or description
+        Thread existingThread = threadRepository.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
+        
+        User currentUser = userRepository.findById(threadDTO.getAuthorId())
+            .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        
+        // Check for profanity in title or description
         boolean hasProfanityInTitle = nlpService.containsProfanity(threadDTO.getTitle());
         boolean hasProfanityInDesc = threadDTO.getDescription() != null && 
                                     nlpService.containsProfanity(threadDTO.getDescription());
@@ -148,22 +175,19 @@ public class ThreadServiceImpl implements ThreadService {
             throw new IllegalArgumentException("Thread contains inappropriate language and cannot be updated.");
         }
         
-        Thread thread = threadRepository.findById(id)
-            .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
-
-        thread.setTitle(threadDTO.getTitle());
-        thread.setDescription(threadDTO.getDescription());
-
-        // Update tags
+        // Capture before state for history
+        String beforeState = toJson(existingThread);
+        
+        // Update thread fields
+        existingThread.setTitle(threadDTO.getTitle());
+        existingThread.setDescription(threadDTO.getDescription());
+        
+        // Handle tags
+        Set<Tag> oldTags = new HashSet<>(existingThread.getTags());
+        Set<Tag> newTags = new HashSet<>();
+        
         if (threadDTO.getTags() != null) {
-            Set<Tag> tags = new HashSet<>();
             for (TagDTO tagDTO : threadDTO.getTags()) {
-                // Check for profanity in tag label and description
-                if (nlpService.containsProfanity(tagDTO.getLabel()) || 
-                    (tagDTO.getDescription() != null && nlpService.containsProfanity(tagDTO.getDescription()))) {
-                    throw new IllegalArgumentException("Tag contains inappropriate language and cannot be used.");
-                }
-                
                 Tag tag = tagRepository.findByLabel(tagDTO.getLabel())
                     .orElseGet(() -> {
                         Tag newTag = new Tag();
@@ -173,12 +197,52 @@ public class ThreadServiceImpl implements ThreadService {
                         newTag.setWikidataEntityId(tagDTO.getWikidataEntityId());
                         return tagRepository.save(newTag);
                     });
-                tags.add(tag);
+                newTags.add(tag);
             }
-            thread.setTags(tags);
         }
-
-        return threadRepository.save(thread);
+        
+        // Find removed tags
+        Set<Tag> removedTags = new HashSet<>(oldTags);
+        removedTags.removeAll(newTags);
+        
+        // Find added tags
+        Set<Tag> addedTags = new HashSet<>(newTags);
+        addedTags.removeAll(oldTags);
+        
+        // Update thread tags
+        existingThread.setTags(newTags);
+        
+        // Save the thread
+        Thread updatedThread = threadRepository.save(existingThread);
+        
+        // Log thread update to history
+        threadHistoryService.logThreadUpdate(
+            updatedThread, 
+            currentUser, 
+            beforeState, 
+            toJson(updatedThread)
+        );
+        
+        // Log tag changes
+        for (Tag tag : addedTags) {
+            threadHistoryService.logTagAddition(
+                updatedThread, 
+                currentUser, 
+                tag.getId(), 
+                tag.getLabel()
+            );
+        }
+        
+        for (Tag tag : removedTags) {
+            threadHistoryService.logTagRemoval(
+                updatedThread, 
+                currentUser, 
+                tag.getId(), 
+                tag.getLabel()
+            );
+        }
+        
+        return updatedThread;
     }
 
     @Override
@@ -186,7 +250,18 @@ public class ThreadServiceImpl implements ThreadService {
     public void deleteThread(Long id) {
         Thread thread = threadRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
-        threadRepository.delete(thread);
+        
+        User currentUser = thread.getAuthor(); // Simplified - normally would get from authentication
+        
+        // Log thread deletion to history
+        threadHistoryService.logThreadDeletion(
+            thread, 
+            currentUser, 
+            toJson(thread)
+        );
+        
+        thread.setActive(false);
+        threadRepository.save(thread);
     }
 
     @Override
@@ -194,11 +269,21 @@ public class ThreadServiceImpl implements ThreadService {
     public Thread followThread(Long threadId, Long userId) {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
+        
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
-
+        
+        if (thread.getThreadFollowers().contains(user)) {
+            return thread; // User already follows this thread
+        }
+        
         thread.getThreadFollowers().add(user);
-        return threadRepository.save(thread);
+        Thread updatedThread = threadRepository.save(thread);
+        
+        // Log thread follow to history
+        threadHistoryService.logThreadFollow(updatedThread, user);
+        
+        return updatedThread;
     }
 
     @Override
@@ -206,11 +291,21 @@ public class ThreadServiceImpl implements ThreadService {
     public Thread unfollowThread(Long threadId, Long userId) {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
+        
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
-
+        
+        if (!thread.getThreadFollowers().contains(user)) {
+            return thread; // User doesn't follow this thread
+        }
+        
         thread.getThreadFollowers().remove(user);
-        return threadRepository.save(thread);
+        Thread updatedThread = threadRepository.save(thread);
+        
+        // Log thread unfollow to history
+        threadHistoryService.logThreadUnfollow(updatedThread, user);
+        
+        return updatedThread;
     }
 
     @Override
@@ -218,15 +313,22 @@ public class ThreadServiceImpl implements ThreadService {
     public Thread voteThread(Long threadId, Long userId, boolean isUpvote) {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
-        @SuppressWarnings("unused")
+        
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
         
         VoteType voteType = isUpvote ? VoteType.UPVOTE : VoteType.DOWNVOTE;
-        Vote vote = voteService.createThreadVote(userId, threadId, voteType);
-        thread.getVotes().add(vote);
         
-        return threadRepository.save(thread);
+        // Let VoteService handle the vote logic using the createThreadVote method
+        voteService.createThreadVote(userId, threadId, voteType);
+        
+        // Re-fetch the thread to get updated vote counts
+        Thread updatedThread = threadRepository.findById(threadId).orElseThrow();
+        
+        // Log thread vote to history
+        threadHistoryService.logThreadVote(updatedThread, user, isUpvote);
+        
+        return updatedThread;
     }
 
     @Override
@@ -234,8 +336,19 @@ public class ThreadServiceImpl implements ThreadService {
     public Thread removeVote(Long threadId, Long userId) {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
-            
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        
+        // Let VoteService handle removing the vote using the deleteVoteByUserAndThread method
         voteService.deleteVoteByUserAndThread(userId, threadId);
-        return thread;
+        
+        // Re-fetch the thread to get updated vote counts
+        Thread updatedThread = threadRepository.findById(threadId).orElseThrow();
+        
+        // Log thread vote removal to history
+        threadHistoryService.logThreadRemoveVote(updatedThread, user);
+        
+        return updatedThread;
     }
 } 

@@ -27,7 +27,15 @@ export const API_ENDPOINTS = {
         voteStatus: (id: number) => `${API_BASE_URL}/votes/thread/${id}/status`,
         preview: `${API_BASE_URL}/threads/preview`,
         following: `${API_BASE_URL}/threads/following`,
-        byUser: (userId: number) => `${API_BASE_URL}/threads/user/${userId}`
+        byUser: (userId: number) => `${API_BASE_URL}/threads/user/${userId}`,
+        history: {
+            getAll: (threadId: number) => `${API_BASE_URL}/threads/${threadId}/history`,
+            getPaginated: (threadId: number, page: number = 0, size: number = 10) => 
+                `${API_BASE_URL}/threads/${threadId}/history/paginated?page=${page}&size=${size}`,
+            getEntityHistory: (threadId: number, entityType: string, entityId: number) => 
+                `${API_BASE_URL}/threads/${threadId}/history/entity/${entityType}/${entityId}`,
+            getUserHistory: (userId: number) => `${API_BASE_URL}/threads/history/user/${userId}`
+        }
     },
     comments: {
         create: `${API_BASE_URL}/comments`,

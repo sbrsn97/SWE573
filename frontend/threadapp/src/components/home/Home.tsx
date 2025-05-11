@@ -136,66 +136,64 @@ const Home = () => {
 
   return (
     <MainLayout>
-      {(user: User) => (
-        <div className="space-y-8">
-          <section className="bg-white rounded-xl shadow-sm p-8 mb-8">
-            <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-              Welcome {user.firstName} to the Connect The Dots!
-            </h1>
-            <p className="text-lg text-gray-600">
-              Start exploring and connecting with others.
-            </p>
-          </section>
+      <div className="space-y-8">
+        <section className="bg-white rounded-xl shadow-sm p-8 mb-8">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-2">
+            Welcome to the Connect The Dots!
+          </h1>
+          <p className="text-lg text-gray-600">
+            Start exploring and connecting with others.
+          </p>
+        </section>
+        
+        {/* Hot Threads Section */}
+        <section className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center mb-6">
+            <FaFire className="text-orange-500 mr-2" size={24} />
+            <h2 className="text-2xl font-semibold text-gray-800">Hot Threads</h2>
+          </div>
           
-          {/* Hot Threads Section */}
+          {loadingHot ? (
+            <div className="text-center py-8 text-gray-500">Loading hot threads...</div>
+          ) : errorHot ? (
+            <div className="bg-red-50 text-red-600 p-4 rounded-lg">{errorHot}</div>
+          ) : hotThreads.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">No hot threads found</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {hotThreads.map(thread => (
+                <ThreadCard key={thread.id} thread={thread} />
+              ))}
+            </div>
+          )}
+        </section>
+        
+        {/* Recommended Threads Section (Only shows for authenticated users) */}
+        {isAuthenticated && (
           <section className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex items-center mb-6">
-              <FaFire className="text-orange-500 mr-2" size={24} />
-              <h2 className="text-2xl font-semibold text-gray-800">Hot Threads</h2>
+              <FaLightbulb className="text-yellow-500 mr-2" size={24} />
+              <h2 className="text-2xl font-semibold text-gray-800">You Might Be Interested In</h2>
             </div>
             
-            {loadingHot ? (
-              <div className="text-center py-8 text-gray-500">Loading hot threads...</div>
-            ) : errorHot ? (
-              <div className="bg-red-50 text-red-600 p-4 rounded-lg">{errorHot}</div>
-            ) : hotThreads.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No hot threads found</div>
+            {loadingRecommended ? (
+              <div className="text-center py-8 text-gray-500">Loading recommendations...</div>
+            ) : errorRecommended ? (
+              <div className="bg-red-50 text-red-600 p-4 rounded-lg">{errorRecommended}</div>
+            ) : recommendedThreads.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No recommendations found. Try following some threads or users to get personalized recommendations.
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {hotThreads.map(thread => (
+                {recommendedThreads.map(thread => (
                   <ThreadCard key={thread.id} thread={thread} />
                 ))}
               </div>
             )}
           </section>
-          
-          {/* Recommended Threads Section (Only shows for authenticated users) */}
-          {isAuthenticated && (
-            <section className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center mb-6">
-                <FaLightbulb className="text-yellow-500 mr-2" size={24} />
-                <h2 className="text-2xl font-semibold text-gray-800">You Might Be Interested In</h2>
-              </div>
-              
-              {loadingRecommended ? (
-                <div className="text-center py-8 text-gray-500">Loading recommendations...</div>
-              ) : errorRecommended ? (
-                <div className="bg-red-50 text-red-600 p-4 rounded-lg">{errorRecommended}</div>
-              ) : recommendedThreads.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No recommendations found. Try following some threads or users to get personalized recommendations.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {recommendedThreads.map(thread => (
-                    <ThreadCard key={thread.id} thread={thread} />
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </MainLayout>
   );
 };

@@ -34,6 +34,8 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const selectorRef = useRef<HTMLDivElement>(null);
+  const createButtonRef = useRef<HTMLButtonElement>(null);
+  const [modalPosition, setModalPosition] = useState<{top?: number; left?: number; right?: number; bottom?: number} | undefined>(undefined);
   const navigate = useNavigate();
 
   // Handle clicks outside of component
@@ -202,6 +204,8 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
       return;
     }
     
+    // No positioning needed - will overlay on the CreateThreadModal
+    setModalPosition(undefined);
     setShowCreateModal(true);
   };
 
@@ -281,6 +285,7 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
         </div>
         
         <button
+          ref={createButtonRef}
           type="button"
           onClick={(e) => handleCreateTag(e)}
           className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -293,6 +298,7 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
         <CreateTagModal
           onClose={() => setShowCreateModal(false)}
           onTagCreated={handleTagCreated}
+          position={modalPosition}
         />
       )}
     </div>

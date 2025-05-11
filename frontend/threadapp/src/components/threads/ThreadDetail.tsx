@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
-import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes, FaUserMinus, FaUserPlus } from 'react-icons/fa';
+import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes, FaUserMinus, FaUserPlus, FaEllipsisV, FaSearch, FaHistory } from 'react-icons/fa';
 import { fetchWithAuth, handleAuthError } from '../../utils/authUtils';
 import { addToRecentThreads } from '../../utils/recentThreadsUtils';
 import Tag from '../tags/Tag';
@@ -124,6 +124,9 @@ const ThreadDetail = () => {
   const [author, setAuthor] = useState<Author | null>(null);
   const [authorLoading, setAuthorLoading] = useState(false);
   
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
+  
   const navigate = useNavigate();
 
   // CSS for animations
@@ -143,6 +146,20 @@ const ThreadDetail = () => {
     
     return () => {
       document.head.removeChild(style);
+    };
+  }, []);
+
+  // Close options menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(event.target as Node)) {
+        setShowOptionsMenu(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
@@ -173,8 +190,7 @@ const ThreadDetail = () => {
     // Only recalculate if there's a potential inconsistency
     // For example, if a user has voted but the corresponding count is 0
     if ((userVote === 'UPVOTE' && thread.upvoteCount === 0) || 
-        (userVote === 'DOWNVOTE' && thread.downvoteCount === 0) ||
-        (userVote && thread.upvoteCount > 0 && thread.downvoteCount > 0)) {
+        (userVote === 'DOWNVOTE' && thread.downvoteCount === 0)) {
       
       console.log("Detected potential vote count inconsistency, recalculating...");
       
@@ -842,6 +858,36 @@ const ThreadDetail = () => {
     }
   };
 
+  const handleEditThread = () => {
+    // Close the menu
+    setShowOptionsMenu(false);
+    
+    // Navigate to edit page or open modal
+    if (thread) {
+      navigate(`/threads/${thread.id}/edit`);
+    }
+  };
+  
+  const handleResearchWikidata = () => {
+    // Close the menu
+    setShowOptionsMenu(false);
+    
+    // Implement Wikidata research functionality
+    alert("Wikidata research functionality will be implemented here");
+    // In the future, this could make API calls to fetch Wikidata information
+    // related to the thread's tags or title
+  };
+
+  const handleViewThreadHistory = () => {
+    // Close the menu
+    setShowOptionsMenu(false);
+    
+    // Navigate to thread history page
+    if (thread) {
+      navigate(`/threads/${thread.id}/history`);
+    }
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -880,108 +926,201 @@ const ThreadDetail = () => {
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <div className="flex justify-between items-center mb-3">
-              <h1 className="text-2xl font-semibold text-gray-900">
-                {thread.title}
-              </h1>
-              
-              {currentUser && (
-                <button
-                  onClick={handleFollowToggle}
-                  disabled={followLoading}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md ${
-                    isFollowing
-                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
-                  } transition-colors`}
-                >
-                  {followLoading ? (
-                    <span>Loading...</span>
-                  ) : isFollowing ? (
-                    <>
-                      <FaUserMinus size={14} />
-                      <span>Unfollow</span>
-                    </>
-                  ) : (
-                    <>
-                      <FaUserPlus size={14} />
-                      <span>Follow</span>
-                    </>
+            <div className="border-b border-gray-100 pb-3 mb-3">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2 mb-2">
+                <h1 className="text-xl md:text-2xl font-semibold text-gray-800 leading-tight">
+                  {thread.title}
+                </h1>
+                
+                <div className="flex flex-col items-end">
+                  {currentUser && (
+                    <button
+                      onClick={handleFollowToggle}
+                      disabled={followLoading}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 shadow-sm ${
+                        isFollowing
+                          ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow'
+                          : 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-md'
+                      } whitespace-nowrap mb-2`}
+                    >
+                      {followLoading ? (
+                        <span className="inline-flex items-center">
+                          <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Loading
+                        </span>
+                      ) : isFollowing ? (
+                        <>
+                          <FaUserMinus size={12} />
+                          <span>Unfollow</span>
+                        </>
+                      ) : (
+                        <>
+                          <FaUserPlus size={12} />
+                          <span>Follow</span>
+                        </>
+                      )}
+                    </button>
                   )}
-                </button>
-              )}
-            </div>
-
-            {/* Author information */}
-            <div className="flex items-center mb-4 bg-gray-50 p-2 rounded-md">
-              {authorLoading ? (
-                <div className="flex items-center text-gray-500 text-sm">
-                  <span className="animate-pulse">Loading author...</span>
-                </div>
-              ) : author ? (
-                <div className="flex items-center">
-                  <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-xs mr-2">
-                    {author.username.charAt(0).toUpperCase()}
+                  
+                  {/* Thread Options Menu */}
+                  <div className="relative mt-1" ref={optionsMenuRef}>
+                    <button
+                      onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                      className="text-gray-500 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100"
+                      title="Thread options"
+                    >
+                      <FaEllipsisV size={14} />
+                    </button>
+                    
+                    {showOptionsMenu && (
+                      <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200">
+                        <button 
+                          onClick={handleEditThread}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <FaEdit size={14} className="text-gray-500" />
+                          <span>Edit Thread</span>
+                        </button>
+                        <button 
+                          onClick={handleResearchWikidata}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <FaSearch size={14} className="text-gray-500" />
+                          <span>Research on Wikidata</span>
+                        </button>
+                        <button 
+                          onClick={handleViewThreadHistory}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <FaHistory size={14} className="text-gray-500" />
+                          <span>View Thread History</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <Link to={`/users/${author.id}`} className="text-sm text-gray-600 hover:text-gray-800">
-                    @{author.username}
-                  </Link>
                 </div>
-              ) : (
-                <div className="text-sm text-gray-500">Author unavailable</div>
+              </div>
+
+              {/* Thread Tags - Above author information */}
+              {thread.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {thread.tags.map(tag => (
+                    <Tag key={tag.id} tag={tag} />
+                  ))}
+                </div>
               )}
             </div>
-
-            <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-              <span>Posted {formatDate(thread.createdAt)}</span>
-              {thread.updatedAt !== thread.createdAt && (
-                <span>(Edited {formatDate(thread.updatedAt)})</span>
-              )}
-              {thread.followerIds && (
-                <span>{thread.followerIds.length} followers</span>
-              )}
+            
+            {/* Author and Metadata - Improved layout */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+              {/* Author Card */}
+              <div className="flex items-center bg-gray-50 rounded-lg p-2 shadow-sm flex-shrink-0">
+                {authorLoading ? (
+                  <div className="flex items-center text-gray-500 text-sm">
+                    <span className="animate-pulse">Loading author...</span>
+                  </div>
+                ) : author ? (
+                  <div className="flex items-center">
+                    <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium text-sm mr-2">
+                      {author.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <Link to={`/users/${author.id}`} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
+                        @{author.username}
+                      </Link>
+                      <p className="text-xs text-gray-500">Author</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">Author unavailable</div>
+                )}
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
+                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span>Posted {formatDate(thread.createdAt)}</span>
+                </div>
+                
+                {thread.updatedAt !== thread.createdAt && (
+                  <div className="flex items-center text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
+                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    <span>Edited {formatDate(thread.updatedAt)}</span>
+                  </div>
+                )}
+                
+                {thread.followerIds && (
+                  <div className="flex items-center text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
+                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <span>{thread.followerIds.length} followers</span>
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* Thread Content */}
             {thread.description && (
-              <div className="prose max-w-none mb-6">
+              <div className="prose max-w-none mb-5 border-l-3 border-gray-100 pl-3 py-1">
                 {thread.description}
               </div>
             )}
 
-            {thread.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-6">
-                {thread.tags.map(tag => (
-                  <Tag key={tag.id} tag={tag} />
-                ))}
-              </div>
-            )}
-
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
+            {/* Voting - Improved */}
+            <div className="flex items-center gap-4 border-t border-gray-100 pt-3">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleVote(true)}
-                  className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${
-                    userVote === 'UPVOTE' ? 'text-blue-600' : 'text-gray-600'
+                  className={`p-1.5 rounded-full hover:bg-blue-50 transition-colors ${
+                    userVote === 'UPVOTE' ? 'text-blue-600 bg-blue-50' : 'text-gray-500'
                   }`}
                   disabled={votingInProgress}
+                  title="Upvote"
                 >
-                  {userVote === 'UPVOTE' ? <FaThumbsUp size={18} /> : <FaRegThumbsUp size={18} />}
+                  {userVote === 'UPVOTE' ? <FaThumbsUp size={16} /> : <FaRegThumbsUp size={16} />}
                 </button>
-                <span className="text-gray-600 font-medium">{thread.upvoteCount}</span>
+                <span className={`font-medium text-sm ${userVote === 'UPVOTE' ? 'text-blue-600' : 'text-gray-500'}`}>
+                  {thread.upvoteCount}
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleVote(false)}
-                  className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${
-                    userVote === 'DOWNVOTE' ? 'text-red-600' : 'text-gray-600'
+                  className={`p-1.5 rounded-full hover:bg-red-50 transition-colors ${
+                    userVote === 'DOWNVOTE' ? 'text-red-600 bg-red-50' : 'text-gray-500'
                   }`}
                   disabled={votingInProgress}
+                  title="Downvote"
                 >
-                  {userVote === 'DOWNVOTE' ? <FaThumbsDown size={18} /> : <FaRegThumbsDown size={18} />}
+                  {userVote === 'DOWNVOTE' ? <FaThumbsDown size={16} /> : <FaRegThumbsDown size={16} />}
                 </button>
-                <span className="text-gray-600 font-medium">{thread.downvoteCount}</span>
+                <span className={`font-medium text-sm ${userVote === 'DOWNVOTE' ? 'text-red-600' : 'text-gray-500'}`}>
+                  {thread.downvoteCount}
+                </span>
               </div>
+              
+              <button 
+                className="ml-auto text-gray-400 hover:text-blue-500 flex items-center gap-1 text-xs"
+                onClick={() => {
+                  const url = window.location.href;
+                  navigator.clipboard.writeText(url).then(() => {
+                    alert("Link copied to clipboard!");
+                  });
+                }}
+                title="Copy link to thread"
+              >
+                <FaLink size={12} />
+                <span>Share</span>
+              </button>
             </div>
           </div>
 
@@ -1250,42 +1389,40 @@ const ThreadDetail = () => {
 
   return (
     <MainLayout>
-      {() => (
-        <>
-          {renderContent()}
-          
-          {/* Node Create Modal */}
-          {showNodeForm && renderNodeForm()}
-          
-          {/* Node Edit Modal */}
-          {showNodeEditModal && renderNodeEditForm()}
-          
-          {/* Node Details Modal */}
-          {showNodeDetails && selectedNodeId && (
-            <NodeDetails
-              node={graphNodes.find(node => node.id === selectedNodeId)!}
-              onClose={closeNodeDetails}
-              onEdit={handleEditNode}
-              onDelete={handleDeleteNode}
-              onConnectionChange={handleConnectionChange}
-              allNodes={graphNodes}
-            />
-          )}
-          
-          {/* Edge Details Modal */}
-          {showEdgeDetails && selectedEdgeId && (
-            <EdgeDetails
-              edge={graphEdges.find(edge => edge.id === selectedEdgeId)!}
-              onClose={() => {
-                setShowEdgeDetails(false);
-                setSelectedEdgeId(null);
-              }}
-              onUpdate={handleEdgeUpdate}
-              onDelete={handleDeleteEdge}
-            />
-          )}
-        </>
-      )}
+      <>
+        {renderContent()}
+        
+        {/* Node Create Modal */}
+        {showNodeForm && renderNodeForm()}
+        
+        {/* Node Edit Modal */}
+        {showNodeEditModal && renderNodeEditForm()}
+        
+        {/* Node Details Modal */}
+        {showNodeDetails && selectedNodeId && (
+          <NodeDetails
+            node={graphNodes.find(node => node.id === selectedNodeId)!}
+            onClose={closeNodeDetails}
+            onEdit={handleEditNode}
+            onDelete={handleDeleteNode}
+            onConnectionChange={handleConnectionChange}
+            allNodes={graphNodes}
+          />
+        )}
+        
+        {/* Edge Details Modal */}
+        {showEdgeDetails && selectedEdgeId && (
+          <EdgeDetails
+            edge={graphEdges.find(edge => edge.id === selectedEdgeId)!}
+            onClose={() => {
+              setShowEdgeDetails(false);
+              setSelectedEdgeId(null);
+            }}
+            onUpdate={handleEdgeUpdate}
+            onDelete={handleDeleteEdge}
+          />
+        )}
+      </>
     </MainLayout>
   );
 };

@@ -22,4 +22,20 @@ public interface ThreadService {
     Optional<Thread> findById(Long id);
     Thread save(Thread thread);
     void delete(Thread thread);
+    
+    /**
+     * Check if a user can interact with a thread (comment, vote)
+     * @param threadId the thread ID
+     * @param userId the user ID
+     * @return true if the user can interact with the thread
+     */
+    boolean canUserInteractWithThread(Long threadId, Long userId);
+    
+    /**
+     * Check if a user can view a thread
+     * @param threadId the thread ID
+     * @param userId the user ID
+     * @return true if the user can view the thread
+     */
+    boolean canUserViewThread(Long threadId, Long userId);
 } 

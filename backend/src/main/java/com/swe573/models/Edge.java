@@ -12,7 +12,8 @@ import org.hibernate.annotations.OnDeleteAction;
 @Table(name = "edges", indexes = {
     @Index(name = "idx_edge_source", columnList = "source_node_id"),
     @Index(name = "idx_edge_target", columnList = "target_node_id"),
-    @Index(name = "idx_edge_visibility", columnList = "is_active")
+    @Index(name = "idx_edge_visibility", columnList = "isactive"),
+    @Index(name = "idx_edge_thread", columnList = "thread_id")
 })
 @Getter
 @Setter

@@ -204,7 +204,7 @@ const TagSelector = ({ selectedTags, onTagsChange }: TagSelectorProps) => {
       return;
     }
     
-    // No positioning needed - will overlay on the CreateThreadModal
+    // Position modal at the center of the screen
     setModalPosition(undefined);
     setShowCreateModal(true);
   };

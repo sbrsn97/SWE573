@@ -11,6 +11,9 @@ import MainLayout from '../layout/MainLayout';
 import { API_ENDPOINTS } from '../../config/config';
 import { fetchWithAuth, handleAuthError, isAdmin, isThreadOwner } from '../../utils/authUtils';
 import { FaEdit, FaTrash, FaArchive, FaUndo, FaExclamationTriangle } from 'react-icons/fa';
+import TagSelector from '../tags/TagSelector';
+import { Tag } from '../tags/TagSelector';
+import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
 
 interface Thread {
   id: number;
@@ -27,10 +30,7 @@ interface Thread {
     id: number;
     username: string;
   };
-  tags: Array<{
-    id: number;
-    label: string;
-  }>;
+  tags: Tag[];
 }
 
 const ThreadEdit = () => {
@@ -41,12 +41,14 @@ const ThreadEdit = () => {
   const [thread, setThread] = useState<Thread | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [confirmDialogVisible, setConfirmDialogVisible] = useState(false);
   const [actionType, setActionType] = useState<'deactivate' | 'reactivate'>('deactivate');
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     const fetchThread = async () => {
@@ -73,6 +75,7 @@ const ThreadEdit = () => {
         setThread(data);
         setTitle(data.title);
         setDescription(data.description);
+        setSelectedTags(data.tags || []);
         
         // Check permissions
         const [admin, owner] = await Promise.all([
@@ -99,6 +102,11 @@ const ThreadEdit = () => {
     fetchThread();
   }, [id, navigate]);
   
+  const handleTagsChange = (newTags: Tag[]) => {
+    console.log('Tags changed to:', newTags);
+    setSelectedTags(newTags);
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -109,6 +117,7 @@ const ThreadEdit = () => {
     
     try {
       setSaving(true);
+      setError(null);
       
       const response = await fetchWithAuth(`${API_ENDPOINTS.threads.update(Number(id))}`, {
         method: 'PUT',
@@ -120,7 +129,7 @@ const ThreadEdit = () => {
           title,
           description,
           authorId: thread.authorId,
-          tags: thread.tags ? [...thread.tags] : []
+          tags: selectedTags
         })
       });
       
@@ -130,6 +139,7 @@ const ThreadEdit = () => {
         try {
           const errorData = await response.json();
           console.error('Error updating thread:', errorData);
+          setError(errorData.message || 'Failed to update thread');
           toast.current?.show({ 
             severity: 'error', 
             summary: 'Error', 
@@ -138,6 +148,7 @@ const ThreadEdit = () => {
         } catch (parseError) {
           console.error('Error parsing error response:', parseError);
           console.error('Original response:', response);
+          setError('Failed to update thread. Server error.');
           toast.current?.show({ 
             severity: 'error', 
             summary: 'Error', 
@@ -155,6 +166,7 @@ const ThreadEdit = () => {
       }, 1500);
     } catch (error) {
       console.error('Error updating thread:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred while updating the thread');
       toast.current?.show({ severity: 'error', summary: 'Error', detail: 'An error occurred while updating the thread' });
     } finally {
       setSaving(false);
@@ -468,6 +480,8 @@ const ThreadEdit = () => {
         )}
         
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
+          {error && <ProfanityErrorMessage message={error} />}
+          
           <div className="mb-4">
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
               Title *
@@ -494,22 +508,35 @@ const ThreadEdit = () => {
             />
           </div>
           
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tags
+            </label>
+            <div className="text-xs text-gray-500 mb-2">
+              {selectedTags.length > 0 
+                ? `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected` 
+                : 'No tags selected'}
+            </div>
+            <TagSelector
+              selectedTags={selectedTags}
+              onTagsChange={handleTagsChange}
+            />
+          </div>
+          
           <div className="flex justify-between items-center mt-6">
             <Button 
               type="button" 
               label="Cancel" 
               severity="secondary"
               onClick={() => navigate(`/threads/${id}`)} 
-              className="p-button-outlined"
               disabled={saving}
             />
             
             <Button 
               type="submit" 
-              label="Save Changes" 
-              icon={<FaEdit className="mr-2" />}
-              disabled={saving || !title.trim()}
-              loading={saving}
+              label={saving ? 'Saving...' : 'Save Changes'} 
+              icon="pi pi-save" 
+              disabled={saving}
             />
           </div>
         </form>

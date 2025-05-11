@@ -14,7 +14,10 @@ import ThreadEdit from './components/threads/ThreadEdit.tsx'
 import { setupAuthInterceptor } from './utils/authUtils'
 import AuthRoute from './components/auth/AuthRoute.tsx'
 import AdminRoute from './components/routes/AdminRoute.tsx'
+import AdminDashboard from './components/admin/AdminDashboard.tsx'
 import ProfanityManagement from './components/admin/ProfanityManagement.tsx'
+import TagManagement from './components/admin/TagManagement.tsx'
+import CreateThreadPage from './components/threads/CreateThreadPage.tsx'
 
 const App = () => {
   const navigate = useNavigate();
@@ -40,6 +43,18 @@ const App = () => {
           <UserProfile />
         </AuthRoute>
       } />
+      <Route path="/threads" element={
+        <AuthRoute>
+          <ThreadsList />
+        </AuthRoute>
+      } />
+      
+      <Route path="/threads/new" element={
+        <AuthRoute>
+          <CreateThreadPage />
+        </AuthRoute>
+      } />
+      
       <Route path="/threads/:id" element={
         <AuthRoute>
           <ThreadDetail />
@@ -55,15 +70,12 @@ const App = () => {
           <ThreadEdit />
         </AuthRoute>
       } />
-      <Route path="/threads" element={
-        <AuthRoute>
-          <ThreadsList />
-        </AuthRoute>
-      } />
 
       {/* Admin routes */}
       <Route path="/admin" element={<AdminRoute />}>
+        <Route index element={<AdminDashboard />} />
         <Route path="profanity" element={<ProfanityManagement />} />
+        <Route path="tags" element={<TagManagement />} />
       </Route>
       
       {/* Default route */}

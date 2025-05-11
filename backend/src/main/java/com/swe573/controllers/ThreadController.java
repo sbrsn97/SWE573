@@ -225,6 +225,7 @@ public class ThreadController {
         dto.setTitle(thread.getTitle());
         dto.setDescription(thread.getDescription());
         dto.setAuthorId(thread.getAuthor().getId());
+        dto.setThreadStyle(thread.getThreadStyle());
         dto.setCreatedAt(thread.getCreatedAt());
         dto.setUpdatedAt(thread.getUpdatedAt());
         dto.setUpvoteCount(thread.getUpvoteCount());

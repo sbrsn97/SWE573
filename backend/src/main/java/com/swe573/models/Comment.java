@@ -18,7 +18,12 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "comments")
+@Table(name = "comments", indexes = {
+    @Index(name = "idx_comment_visibility", columnList = "isactive"),
+    @Index(name = "idx_comment_thread", columnList = "thread_id"),
+    @Index(name = "idx_comment_author", columnList = "author_id"),
+    @Index(name = "idx_comment_parent", columnList = "parent_id")
+})
 @EqualsAndHashCode(callSuper = true, exclude = {"votes", "thread", "parent", "children"})
 public class Comment extends BaseEntity {
     @Column(columnDefinition = "TEXT")

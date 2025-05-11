@@ -7,6 +7,8 @@ import com.swe573.models.Tag;
 import com.swe573.models.User;
 import com.swe573.models.Vote;
 import com.swe573.models.enums.VoteType;
+import com.swe573.models.enums.ThreadStyle;
+import com.swe573.models.enums.Role;
 import com.swe573.repositories.ThreadRepository;
 import com.swe573.repositories.TagRepository;
 import com.swe573.repositories.UserRepository;
@@ -102,6 +104,11 @@ public class ThreadServiceImpl implements ThreadService {
         thread.setTitle(threadDTO.getTitle());
         thread.setDescription(threadDTO.getDescription());
         thread.setAuthor(author);
+        
+        // Set thread style if provided, otherwise default to PUBLIC
+        if (threadDTO.getThreadStyle() != null) {
+            thread.setThreadStyle(threadDTO.getThreadStyle());
+        }
 
         // Handle tags
         Set<Tag> tags = new HashSet<>();
@@ -320,26 +327,113 @@ public class ThreadServiceImpl implements ThreadService {
     }
 
     @Override
+    public boolean canUserInteractWithThread(Long threadId, Long userId) {
+        Thread thread = threadRepository.findById(threadId)
+            .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new EntityNotFoundException("User not found"));
+            
+        // Admins can interact with any thread
+        if (user.getRole() == Role.ADMIN) {
+            return true;
+        }
+        
+        // Author can always interact with their own thread
+        if (thread.getAuthor().getId().equals(userId)) {
+            return true;
+        }
+        
+        // For FOLLOW_TO_INTERACT threads, check if user is a follower
+        if (thread.getThreadStyle() == ThreadStyle.FOLLOW_TO_INTERACT) {
+            return thread.getThreadFollowers().stream()
+                .anyMatch(follower -> follower.getId().equals(userId));
+        }
+        
+        // For PRIVATE threads (not fully implemented), only explicit permissions would allow
+        if (thread.getThreadStyle() == ThreadStyle.PRIVATE) {
+            // For now, only author and admin can interact with private threads
+            return false;
+        }
+        
+        // PUBLIC threads are open to all
+        return thread.getThreadStyle() == ThreadStyle.PUBLIC;
+    }
+    
+    @Override
+    public boolean canUserViewThread(Long threadId, Long userId) {
+        Thread thread = threadRepository.findById(threadId)
+            .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
+        
+        // If thread is inactive, only author and admins can view it
+        if (!thread.isActive()) {
+            if (userId == null) return false;
+            
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                
+            return thread.getAuthor().getId().equals(userId) || user.getRole() == Role.ADMIN;
+        }
+        
+        // For PUBLIC and FOLLOW_TO_INTERACT threads, anyone can view
+        if (thread.getThreadStyle() == ThreadStyle.PUBLIC || 
+            thread.getThreadStyle() == ThreadStyle.FOLLOW_TO_INTERACT) {
+            return true;
+        }
+        
+        // For PRIVATE threads, only author, followers, and admins can view
+        if (thread.getThreadStyle() == ThreadStyle.PRIVATE) {
+            // If no userId, anonymous users cannot access private threads
+            if (userId == null) return false;
+            
+            User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                
+            // Author can always view
+            if (thread.getAuthor().getId().equals(userId)) {
+                return true;
+            }
+            
+            // Admin can always view
+            if (user.getRole() == Role.ADMIN) {
+                return true;
+            }
+            
+            // For now, followers cannot view private threads (we'll implement explicit permissions later)
+            return false;
+        }
+        
+        return false;
+    }
+    
+    @Override
     @Transactional
     public Thread voteThread(Long threadId, Long userId, boolean isUpvote) {
         Thread thread = threadRepository.findById(threadId)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
-        
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new EntityNotFoundException("User not found"));
+            
+        // Check if the user can interact with this thread
+        if (!canUserInteractWithThread(threadId, userId)) {
+            if (thread.getThreadStyle() == ThreadStyle.FOLLOW_TO_INTERACT) {
+                throw new IllegalStateException("You must follow this thread to vote on it");
+            } else {
+                throw new IllegalStateException("You do not have permission to vote on this thread");
+            }
+        }
         
+        // First remove any existing votes
+        if (voteService.hasUserVotedOnThread(userId, threadId)) {
+            voteService.deleteVoteByUserAndThread(userId, threadId);
+        }
+        
+        // Create the new vote with the appropriate VoteType
         VoteType voteType = isUpvote ? VoteType.UPVOTE : VoteType.DOWNVOTE;
-        
-        // Let VoteService handle the vote logic using the createThreadVote method
         voteService.createThreadVote(userId, threadId, voteType);
         
-        // Re-fetch the thread to get updated vote counts
-        Thread updatedThread = threadRepository.findById(threadId).orElseThrow();
-        
-        // Log thread vote to history
-        threadHistoryService.logThreadVote(updatedThread, user, isUpvote);
-        
-        return updatedThread;
+        // Refresh the thread to ensure vote counts are updated
+        return threadRepository.findById(threadId).orElseThrow(() -> 
+            new EntityNotFoundException("Thread not found after voting"));
     }
 
     @Override

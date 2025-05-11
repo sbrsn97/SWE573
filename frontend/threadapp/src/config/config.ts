@@ -76,7 +76,8 @@ export const API_ENDPOINTS = {
         getAll: `${API_BASE_URL}/tags`,
         search: `${API_BASE_URL}/tags/search`,
         getByLabel: (label: string) => `${API_BASE_URL}/tags/label/${label}`,
-        getByWikidata: (id: string) => `${API_BASE_URL}/tags/wikidata/${id}`
+        getByWikidata: (id: string) => `${API_BASE_URL}/tags/wikidata/${id}`,
+        delete: (id: number) => `${API_BASE_URL}/tags/${id}`
     },
     nlp: {
         profanity: {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaHome, FaSearch, FaSignOutAlt, FaList, FaShieldAlt, FaChevronDown, FaChevronUp, FaFilter } from 'react-icons/fa';
+import { FaHome, FaSearch, FaSignOutAlt, FaList, FaShieldAlt, FaChevronDown, FaChevronUp, FaFilter, FaUserShield } from 'react-icons/fa';
 import { API_ENDPOINTS } from '../../config/config';
 import { clearAllLocalStorage } from '../../utils/authUtils';
 import SearchResults from './SearchResults';
@@ -20,9 +20,7 @@ interface NavbarProps {
 const Navbar = ({ user }: NavbarProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [showAdminMenu, setShowAdminMenu] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const adminMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -32,9 +30,6 @@ const Navbar = ({ user }: NavbarProps) => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSearchResults(false);
-      }
-      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target as Node)) {
-        setShowAdminMenu(false);
       }
     };
 
@@ -135,30 +130,13 @@ const Navbar = ({ user }: NavbarProps) => {
 
       <div className="flex-none flex items-center gap-3">
         {isAdmin && (
-          <div className="relative" ref={adminMenuRef}>
-            <button
-              onClick={() => setShowAdminMenu(!showAdminMenu)}
-              className="flex items-center justify-center p-2 rounded-full text-purple-600 hover:bg-purple-50 hover:scale-110 active:scale-95 transition-all duration-200 ease-in-out"
-              title="Admin Menu"
-            >
-              <FaShieldAlt className="text-xl" />
-              {showAdminMenu ? <FaChevronUp className="ml-1 text-xs" /> : <FaChevronDown className="ml-1 text-xs" />}
-            </button>
-            
-            {showAdminMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 py-1">
-                <Link
-                  to="/admin/profanity"
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                  onClick={() => setShowAdminMenu(false)}
-                >
-                  <FaFilter className="mr-2" />
-                  Profanity Filter
-                </Link>
-                {/* Add more admin links here as needed */}
-              </div>
-            )}
-          </div>
+          <Link
+            to="/admin"
+            className="w-10 h-10 rounded-full bg-blue-400 text-white flex items-center justify-center font-bold text-sm border-2 border-blue-300 hover:bg-blue-500 hover:border-blue-400 hover:scale-105 active:scale-95 transition-all duration-200 ease-in-out shadow-md hover:shadow-lg"
+            title="Admin Dashboard"
+          >
+            <FaUserShield className="text-white text-xl" />
+          </Link>
         )}
         
         <span className="text-gray-700 font-medium">{user?.username}</span>

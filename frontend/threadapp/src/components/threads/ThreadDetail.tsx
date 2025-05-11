@@ -1066,7 +1066,6 @@ const ThreadDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow-sm p-6 order-1">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-semibold text-gray-900 hidden sm:block">Thread Details</h2>
               <div className="ml-auto"></div>
             </div>
             <div className="border-b border-gray-100 pb-3 mb-3">
@@ -1171,6 +1170,9 @@ const ThreadDetail = () => {
               </div>
             )}
             
+            {/* New separator */}
+            <div className="border-t-2 border-gray-200 my-4"></div>
+            
             {/* Author and Metadata - Improved layout */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
               {/* Author Card */}
@@ -1185,16 +1187,15 @@ const ThreadDetail = () => {
                     className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
                   >
                     <div className={`w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm mr-2`}>
-                      {author.firstName?.[0]}{author.lastName?.[0]}
+                      {author.username?.[0]?.toUpperCase()}
                     </div>
                     <div>
                       <div className="font-medium text-gray-900">
-                        {author.firstName} {author.lastName}
+                        @{author.username}
                         <span className="ml-1 sm:ml-2 text-xs sm:text-sm bg-yellow-100 text-yellow-700 px-1 sm:px-2 py-0.5 rounded-full inline-block mt-1 sm:mt-0 sm:inline">
                           Thread Author
                         </span>
                       </div>
-                      <div className="text-sm text-gray-500">@{author.username}</div>
                     </div>
                   </Link>
                 ) : (
@@ -1229,16 +1230,25 @@ const ThreadDetail = () => {
                 )}
               </div>
             </div>
+            
+            {/* New separator */}
+            <div className="border-t-2 border-gray-200 my-4"></div>
 
             {/* Thread Content */}
             {thread.description && (
-              <div className="prose prose-sm sm:prose max-w-none mb-5 border-l-3 border-gray-100 pl-3 py-1 overflow-hidden break-words">
-                {thread.description}
-              </div>
+              <>
+                <h3 className="text-md font-medium text-gray-700 mb-2">Thread Description</h3>
+                <div className="prose prose-base sm:prose-lg max-w-none my-6 px-4 py-3 bg-gray-50 rounded-lg border border-gray-100 shadow-inner overflow-hidden break-words">
+                  {thread.description}
+                </div>
+              </>
             )}
+            
+            {/* New separator */}
+            <div className="border-t-2 border-gray-200 my-4"></div>
 
             {/* Voting - Improved */}
-            <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-3">
+            <div className="flex flex-wrap items-center gap-4 pt-3">
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleVote(true)}
@@ -1288,8 +1298,7 @@ const ThreadDetail = () => {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm p-4 order-2">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-xl font-semibold text-gray-900">Thread Visualization</h2>
+            <div className="flex justify-end items-center mb-3">
               <div className="flex gap-2 items-center">
                 {/* Search input */}
                 {isSearching && (

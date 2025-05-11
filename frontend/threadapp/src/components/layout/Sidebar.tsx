@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaPlus, FaBookmark, FaRegClock, FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import CreateThreadModal from '../threads/CreateThreadModal';
-import { API_ENDPOINTS } from '../../config/config';
 import { fetchWithAuth, handleAuthError } from '../../utils/authUtils';
-import eventBus, { EVENTS } from '../../utils/eventBus';
+import { API_ENDPOINTS } from '../../config/config';
 import { getRecentThreads } from '../../utils/recentThreadsUtils';
+import eventBus, { EVENTS } from '../../utils/eventBus';
 
 interface Thread {
   id: number;
@@ -22,13 +21,12 @@ interface RecentThread {
 }
 
 const Sidebar = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const navigate = useNavigate();
   const [followedThreads, setFollowedThreads] = useState<Thread[]>([]);
   const [recentThreads, setRecentThreads] = useState<RecentThread[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showAllFollowed, setShowAllFollowed] = useState(false);
   const [showAllRecent, setShowAllRecent] = useState(false);
-  const navigate = useNavigate();
 
   const fetchFollowedThreads = async () => {
     try {
@@ -96,12 +94,6 @@ const Sidebar = () => {
     };
   }, [navigate, refreshFollowedThreads, loadRecentThreads, handleThreadViewed]);
 
-  const handleThreadCreated = (threadId: number) => {
-    // Refresh the followed threads list when a new thread is created
-    fetchFollowedThreads();
-    navigate(`/threads/${threadId}`);
-  };
-
   // Display only 5 threads initially unless showing all
   const displayFollowedThreads = showAllFollowed ? followedThreads : followedThreads.slice(0, 5);
   const hasMoreFollowedThreads = followedThreads.length > 5;
@@ -113,13 +105,13 @@ const Sidebar = () => {
   return (
     <div className="fixed left-0 top-[60px] h-[calc(100vh-60px)] w-64 bg-white shadow-sm border-r border-gray-200 overflow-y-auto">
       <div className="p-4">
-        <button
-          onClick={() => setIsModalOpen(true)}
+        <Link
+          to="/threads/new"
           className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow hover:shadow-md hover:translate-y-[-1px] active:translate-y-0"
         >
           <FaPlus className="text-lg text-white" />
           <span className="font-medium text-white">New Thread</span>
-        </button>
+        </Link>
       </div>
       
       {/* Followed Threads Section */}
@@ -232,12 +224,6 @@ const Sidebar = () => {
           )}
         </div>
       </div>
-
-      <CreateThreadModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onThreadCreated={handleThreadCreated}
-      />
     </div>
   );
 };

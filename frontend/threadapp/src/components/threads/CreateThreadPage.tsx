@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from '../../config/config';
 import { Tag } from '../tags/TagSelector';
 import TagSelector from '../tags/TagSelector';
 import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
+import MainLayout from '../layout/MainLayout';
 
 interface User {
   id: number;
@@ -18,13 +19,7 @@ interface ApiResponse<T> {
   code?: string;
 }
 
-interface CreateThreadModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onThreadCreated: (threadId: number) => void;
-}
-
-const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadModalProps) => {
+const CreateThreadPage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
@@ -32,16 +27,6 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
-
-  // Reset form state when modal is closed
-  useEffect(() => {
-    if (!isOpen) {
-      setTitle('');
-      setDescription('');
-      setSelectedTags([]);
-      setError(null);
-    }
-  }, [isOpen]);
 
   const handleApiError = async (response: Response) => {
     const errorData: ApiResponse<any> = await response.json();
@@ -59,8 +44,6 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
 
   useEffect(() => {
     const fetchUser = async () => {
-      if (!isOpen) return;
-
       try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -101,7 +84,7 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
     };
 
     fetchUser();
-  }, [isOpen, navigate]);
+  }, [navigate]);
 
   // Log selected tags whenever they change
   useEffect(() => {
@@ -163,8 +146,7 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
       try {
         const { data } = await response.json();
         console.log('Thread created successfully with ID:', data.id);
-        onThreadCreated(data.id);
-        onClose();
+        navigate(`/threads/${data.id}`);
       } catch (jsonError) {
         console.error('Error parsing success response:', jsonError);
         setError('Error parsing server response');
@@ -176,80 +158,79 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 backdrop-blur-[2px] bg-white/30 flex items-center justify-start pl-72 p-4 z-50">
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
-        <h2 className="text-2xl font-semibold mb-4">Create New Thread</h2>
-        
-        {error && <ProfanityErrorMessage message={error} />}
+    <MainLayout>
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl mx-auto">
+          <h2 className="text-2xl font-semibold mb-6">Create New Thread</h2>
+          
+          {error && <ProfanityErrorMessage message={error} />}
 
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-              Title
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Description (optional)
-            </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={4}
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tags
-            </label>
-            <div className="text-xs text-gray-500 mb-2">
-              {selectedTags.length > 0 
-                ? `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected` 
-                : 'No tags selected'}
+          <form onSubmit={handleSubmit}>
+            <div className="mb-6">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                Title
+              </label>
+              <input
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
             </div>
-            <TagSelector
-              key={`tag-selector-${isOpen}`}
-              selectedTags={selectedTags}
-              onTagsChange={handleTagsChange}
-            />
-          </div>
 
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              disabled={loading}
-            >
-              {loading ? 'Creating...' : 'Create Thread'}
-            </button>
-          </div>
-        </form>
+            <div className="mb-6">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                Description (optional)
+              </label>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={6}
+              />
+            </div>
+
+            <div className="mb-8">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tags
+              </label>
+              <div className="text-xs text-gray-500 mb-2">
+                {selectedTags.length > 0 
+                  ? `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected` 
+                  : 'No tags selected'}
+              </div>
+              <TagSelector
+                selectedTags={selectedTags}
+                onTagsChange={handleTagsChange}
+              />
+            </div>
+
+            <div className="flex justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                disabled={loading}
+              >
+                {loading ? 'Creating...' : 'Create Thread'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </MainLayout>
   );
 };
 
-export default CreateThreadModal; 
+export default CreateThreadPage; 

@@ -18,7 +18,7 @@ public abstract class BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "isactive", nullable = false)
     private boolean isActive = true;
 
     @CreationTimestamp

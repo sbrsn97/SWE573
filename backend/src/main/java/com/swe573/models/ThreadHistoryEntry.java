@@ -14,7 +14,10 @@ import org.hibernate.annotations.OnDeleteAction;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "thread_history")
+@Table(name = "thread_history", indexes = {
+    @Index(name = "idx_thread_history_thread", columnList = "thread_id"),
+    @Index(name = "idx_thread_history_user", columnList = "user_id")
+})
 @EqualsAndHashCode(callSuper = true)
 public class ThreadHistoryEntry extends BaseEntity {
 

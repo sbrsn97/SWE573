@@ -461,14 +461,13 @@ const CreateTagModal = ({ onClose, onTagCreated, position }: CreateTagModalProps
   }, [showColorPicker]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center z-[100]" style={{ justifyContent: 'flex-start' }}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center z-[100]" style={{ justifyContent: 'center' }}>
       <div 
         ref={modalRef}
         className="bg-white rounded-xl shadow-xl w-full max-h-[95vh] overflow-y-auto"
         style={{
           maxWidth: '450px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          marginLeft: '250px' // Position close to sidebar
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
         }}
       >
         <div className="sticky top-0 bg-white z-10 p-4 border-b border-gray-200">

@@ -3,6 +3,7 @@ package com.swe573.dto;
 import java.time.LocalDateTime;
 import java.util.Set;
 
+import com.swe573.models.enums.ThreadStyle;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -25,6 +26,9 @@ public class ThreadDTO {
     @NotNull(message = "Author ID is required")
     @Schema(description = "ID of the thread author")
     private Long authorId;
+    
+    @Schema(description = "Style of the thread (PUBLIC, PRIVATE, FOLLOW_TO_INTERACT)", example = "PUBLIC")
+    private ThreadStyle threadStyle = ThreadStyle.PUBLIC;
     
     @Schema(description = "Set of tags associated with the thread")
     private Set<TagDTO> tags;

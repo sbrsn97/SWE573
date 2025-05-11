@@ -13,7 +13,7 @@ import java.util.Set;
 @Entity
 @Table(name = "nodes", indexes = {
     @Index(name = "idx_node_thread", columnList = "thread_id"),
-    @Index(name = "idx_node_visibility", columnList = "is_active")
+    @Index(name = "idx_node_visibility", columnList = "isactive")
 })
 @Getter
 @Setter

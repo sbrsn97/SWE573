@@ -7,6 +7,7 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.EqualsAndHashCode;
 import com.swe573.models.enums.VoteType;
+import com.swe573.models.enums.ThreadStyle;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -17,7 +18,9 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "threads")
+@Table(name = "threads", indexes = {
+    @Index(name = "idx_thread_visibility", columnList = "isactive")
+})
 @EqualsAndHashCode(callSuper = true, exclude = {"votes", "comments", "nodes", "edges", "threadFollowers"})
 public class Thread extends BaseEntity {
     @NotBlank
@@ -25,6 +28,10 @@ public class Thread extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "thread_style", nullable = false)
+    private ThreadStyle threadStyle = ThreadStyle.PUBLIC;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id")

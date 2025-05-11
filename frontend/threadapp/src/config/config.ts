@@ -68,6 +68,19 @@ export const API_ENDPOINTS = {
         getByLabel: (label: string) => `${API_BASE_URL}/tags/label/${label}`,
         getByWikidata: (id: string) => `${API_BASE_URL}/tags/wikidata/${id}`
     },
+    nlp: {
+        profanity: {
+            check: `${API_BASE_URL}/nlp/profanity/check`,
+            getAllWords: `${API_BASE_URL}/nlp/profanity/words`,
+            addWord: `${API_BASE_URL}/nlp/profanity/words`,
+            removeWord: (word: string) => `${API_BASE_URL}/nlp/profanity/words/${word}`,
+            reload: `${API_BASE_URL}/nlp/profanity/reload`
+        },
+        keywords: `${API_BASE_URL}/nlp/keywords`,
+        entities: `${API_BASE_URL}/nlp/entities`,
+        topics: `${API_BASE_URL}/nlp/topics`,
+        analyze: `${API_BASE_URL}/nlp/analyze`
+    },
     wikidata: {
         // Entity endpoints
         entities: {

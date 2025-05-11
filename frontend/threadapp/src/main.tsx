@@ -11,6 +11,8 @@ import ThreadDetail from './components/threads/ThreadDetail.tsx'
 import ThreadsList from './components/threads/ThreadsList.tsx'
 import { setupAuthInterceptor } from './utils/authUtils'
 import AuthRoute from './components/auth/AuthRoute.tsx'
+import AdminRoute from './components/routes/AdminRoute.tsx'
+import ProfanityManagement from './components/admin/ProfanityManagement.tsx'
 
 const App = () => {
   const navigate = useNavigate();
@@ -46,6 +48,11 @@ const App = () => {
           <ThreadsList />
         </AuthRoute>
       } />
+
+      {/* Admin routes */}
+      <Route path="/admin" element={<AdminRoute />}>
+        <Route path="profanity" element={<ProfanityManagement />} />
+      </Route>
       
       {/* Default route */}
       <Route path="*" element={

@@ -8,7 +8,11 @@ import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.util.CoreMap;
 import org.springframework.stereotype.Service;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.util.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
 import java.util.*;
 
 @Service
@@ -22,6 +26,9 @@ public class StanfordNlpServiceImpl implements NlpService {
     private static final String TURKISH_PROFANITY_FILE = "profanity/turkish_profanity.txt";
     private static final String ENCRYPTION_KEY = "SWE573ProfanityFilterSecretKey123";
     private static final String FILE_WARNING = "#this file is full of disgusting words. decrypt at your own risk";
+    
+    @Autowired
+    private CacheManager cacheManager;
 
     public StanfordNlpServiceImpl() {
         Properties props = new Properties();
@@ -537,6 +544,10 @@ public class StanfordNlpServiceImpl implements NlpService {
                 Set<String> initialWords = new HashSet<>();
                 initialWords.add(word);
                 createProfanityFile(file, initialWords);
+                
+                // Clear the profanity check cache
+                clearProfanityCache();
+                
                 return true;
             }
             
@@ -546,6 +557,9 @@ public class StanfordNlpServiceImpl implements NlpService {
             
             // Write updated content
             createProfanityFile(file, existingWords);
+            
+            // Clear the profanity check cache
+            clearProfanityCache();
             
             return true;
         } catch (Exception e) {
@@ -589,6 +603,9 @@ public class StanfordNlpServiceImpl implements NlpService {
             success = false;
         }
         
+        // Clear the profanity check cache
+        clearProfanityCache();
+        
         return success;
     }
 
@@ -628,6 +645,10 @@ public class StanfordNlpServiceImpl implements NlpService {
     public int reloadProfanityWords() {
         synchronized (profanityWords) {
             profanityWords = loadProfanityWords();
+            
+            // Clear the profanity check cache
+            clearProfanityCache();
+            
             return profanityWords.size();
         }
     }
@@ -646,5 +667,19 @@ public class StanfordNlpServiceImpl implements NlpService {
             "siktir", "amına", "göt", "orospu", "piç", "yarak", "amcık",
             "ibne", "ananı", "sikeyim", "pezevenk", "gavat"
         ));
+    }
+
+    /**
+     * Clears the profanity check cache
+     */
+    private void clearProfanityCache() {
+        try {
+            if (cacheManager != null) {
+                cacheManager.getCache("profanityCheck").clear();
+                System.out.println("Profanity check cache cleared");
+            }
+        } catch (Exception e) {
+            System.out.println("Error clearing cache: " + e.getMessage());
+        }
     }
 } 

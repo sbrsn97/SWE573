@@ -55,4 +55,10 @@ public class UserDTO {
 
     @Schema(description = "Set of tags associated with the user")
     private Set<TagDTO> tags;
+    
+    @Schema(description = "Set of users that are following this user")
+    private Set<Long> followerIds;
+    
+    @Schema(description = "Set of users that this user is following")
+    private Set<Long> followingIds;
 } 

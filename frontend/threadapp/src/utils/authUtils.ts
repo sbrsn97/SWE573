@@ -60,4 +60,21 @@ export const setupAuthInterceptor = (navigate: Function) => {
     
     return response;
   };
+};
+
+// Function to get the current logged-in user's ID
+export const getCurrentUserId = (): string | null => {
+  // Try to get user ID from localStorage
+  const userId = localStorage.getItem('userId');
+  
+  if (userId) {
+    return userId;
+  }
+  
+  return null;
+};
+
+// Function to set the current user ID in localStorage
+export const setCurrentUserId = (userId: string | number): void => {
+  localStorage.setItem('userId', userId.toString());
 }; 

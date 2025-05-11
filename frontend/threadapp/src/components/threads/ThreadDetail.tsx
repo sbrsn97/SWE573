@@ -2,14 +2,16 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
-import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes } from 'react-icons/fa';
+import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes, FaUserMinus, FaUserPlus } from 'react-icons/fa';
 import { fetchWithAuth, handleAuthError } from '../../utils/authUtils';
+import { addToRecentThreads } from '../../utils/recentThreadsUtils';
 import Tag from '../tags/Tag';
 import GraphVisualization from '../graph/GraphVisualization';
 import { HexColorPicker } from 'react-colorful';
 import NodeDetails from '../graph/NodeDetails';
 import EdgeDetails from '../graph/EdgeDetails';
 import CommentSection from '../comments/CommentSection';
+import eventBus, { EVENTS } from '../../utils/eventBus';
 
 interface Tag {
   id: number;
@@ -29,6 +31,7 @@ interface Thread {
   downvoteCount: number;
   createdAt: string;
   updatedAt: string;
+  followerIds?: number[];
 }
 
 interface GraphNode {
@@ -78,6 +81,9 @@ const ThreadDetail = () => {
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
   const [graphLoading, setGraphLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<{id: number} | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   
   // Node creation state
   const [showNodeForm, setShowNodeForm] = useState(false);
@@ -159,6 +165,34 @@ const ThreadDetail = () => {
     }
   }, [id, thread, userVote]);
 
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetchWithAuth(API_ENDPOINTS.users.me);
+        
+        if (!response.ok) {
+          if (handleAuthError(response, navigate)) return;
+          return;
+        }
+        
+        const { data } = await response.json();
+        setCurrentUser(data);
+      } catch (err) {
+        console.error('Error fetching current user:', err);
+      }
+    };
+    
+    fetchCurrentUser();
+  }, [navigate]);
+
+  // Check if current user is following the thread
+  useEffect(() => {
+    if (currentUser && thread && thread.followerIds) {
+      setIsFollowing(thread.followerIds.includes(currentUser.id));
+    }
+  }, [currentUser, thread]);
+
   useEffect(() => {
     const fetchThread = async () => {
       try {
@@ -184,6 +218,15 @@ const ThreadDetail = () => {
 
         const { data } = await response.json();
         setThread(data);
+        
+        // Add thread to recently viewed list in local storage
+        addToRecentThreads(data.id, data.title);
+        
+        // Emit event to notify other components (like Sidebar) that a thread was viewed
+        eventBus.emit(EVENTS.THREAD_VIEWED, {
+          id: data.id,
+          title: data.title
+        });
         
         // Fetch vote status after thread is loaded
         await fetchThreadVoteStatus();
@@ -722,6 +765,51 @@ const ThreadDetail = () => {
     fetchGraphData();
   }, [id, navigate]);
 
+  const handleFollowToggle = async () => {
+    if (!thread || !currentUser) return;
+    
+    setFollowLoading(true);
+    try {
+      const isUnfollowing = isFollowing;
+      const endpoint = isUnfollowing 
+        ? API_ENDPOINTS.threads.unfollow(thread.id)
+        : API_ENDPOINTS.threads.follow(thread.id);
+      
+      const response = await fetchWithAuth(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        if (handleAuthError(response, navigate)) return;
+        throw new Error('Failed to follow/unfollow thread');
+      }
+      
+      // Update follow status
+      setIsFollowing(!isFollowing);
+      
+      // Refresh thread data to update followers list
+      const threadResponse = await fetchWithAuth(API_ENDPOINTS.threads.get(Number(id)));
+      if (threadResponse.ok) {
+        const { data } = await threadResponse.json();
+        setThread(data);
+        
+        // Emit event to notify other components about the follow/unfollow action
+        if (isUnfollowing) {
+          eventBus.emit(EVENTS.THREAD_UNFOLLOWED, data.id);
+        } else {
+          eventBus.emit(EVENTS.THREAD_FOLLOWED, data.id);
+        }
+      }
+    } catch (err) {
+      console.error('Error while following/unfollowing:', err);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -747,14 +835,45 @@ const ThreadDetail = () => {
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-3">
-              {thread.title}
-            </h1>
+            <div className="flex justify-between items-center mb-3">
+              <h1 className="text-2xl font-semibold text-gray-900">
+                {thread.title}
+              </h1>
+              
+              {currentUser && (
+                <button
+                  onClick={handleFollowToggle}
+                  disabled={followLoading}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md ${
+                    isFollowing
+                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
+                  } transition-colors`}
+                >
+                  {followLoading ? (
+                    <span>Loading...</span>
+                  ) : isFollowing ? (
+                    <>
+                      <FaUserMinus size={14} />
+                      <span>Unfollow</span>
+                    </>
+                  ) : (
+                    <>
+                      <FaUserPlus size={14} />
+                      <span>Follow</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
 
             <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
               <span>Posted {formatDate(thread.createdAt)}</span>
               {thread.updatedAt !== thread.createdAt && (
                 <span>(Edited {formatDate(thread.updatedAt)})</span>
+              )}
+              {thread.followerIds && (
+                <span>{thread.followerIds.length} followers</span>
               )}
             </div>
 

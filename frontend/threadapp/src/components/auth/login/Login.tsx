@@ -3,6 +3,7 @@ import { InputText } from 'primereact/inputtext'
 import { useState } from 'react'
 import { useNavigate } from 'react-router';
 import { API_ENDPOINTS } from '../../../config/config';
+import { setCurrentUserId } from '../../../utils/authUtils';
 import './Login.css';
 
 function Login() {
@@ -37,6 +38,12 @@ function Login() {
 
       if (response.ok) {
         localStorage.setItem('token', data.data.token);
+        
+        // Store the user ID for user-specific storage
+        if (data.data.userId) {
+          setCurrentUserId(data.data.userId);
+        }
+        
         navigate("/home");
       } else {
         setErrorMessage(data.message || "Invalid username or password");

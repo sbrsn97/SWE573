@@ -10,7 +10,9 @@ export const API_ENDPOINTS = {
         me: `${API_BASE_URL}/users/me`,
         all: `${API_BASE_URL}/users`,
         update: (id: number) => `${API_BASE_URL}/users/${id}`,
-        search: `${API_BASE_URL}/users/search`
+        search: `${API_BASE_URL}/users/search`,
+        follow: (id: number, followedId: number) => `${API_BASE_URL}/users/${id}/follow/${followedId}`,
+        unfollow: (id: number, followedId: number) => `${API_BASE_URL}/users/${id}/unfollow/${followedId}`
     },
     threads: {
         create: `${API_BASE_URL}/threads`,
@@ -23,7 +25,8 @@ export const API_ENDPOINTS = {
         unfollow: (id: number) => `${API_BASE_URL}/threads/${id}/unfollow`,
         vote: (id: number) => `${API_BASE_URL}/threads/${id}/vote`,
         voteStatus: (id: number) => `${API_BASE_URL}/votes/thread/${id}/status`,
-        preview: `${API_BASE_URL}/threads/preview`
+        preview: `${API_BASE_URL}/threads/preview`,
+        following: `${API_BASE_URL}/threads/following`
     },
     comments: {
         create: `${API_BASE_URL}/comments`,
@@ -46,6 +49,16 @@ export const API_ENDPOINTS = {
         recalculateThreadVotes: (threadId: number) => `${API_BASE_URL}/votes/thread/${threadId}/recalculate`,
         resetAllVoteCounts: `${API_BASE_URL}/votes/reset-all-counts`,
         zeroAllVoteCounts: `${API_BASE_URL}/votes/zero-all-counts`
+    },
+    analytics: {
+        hotThreads: (daysBack: number = 7, limit: number = 5) => 
+            `${API_BASE_URL}/analytics/hot-threads?daysBack=${daysBack}&limit=${limit}`,
+        recommendedThreads: (limit: number = 5) => 
+            `${API_BASE_URL}/analytics/recommended-threads?limit=${limit}`,
+        similarThreads: (threadId: number, limit: number = 5) => 
+            `${API_BASE_URL}/analytics/similar-threads/${threadId}?limit=${limit}`,
+        mostVoted: (limit: number = 5) => 
+            `${API_BASE_URL}/analytics/most-voted?limit=${limit}`
     },
     tags: {
         create: `${API_BASE_URL}/tags`,

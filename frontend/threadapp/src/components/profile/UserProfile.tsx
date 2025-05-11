@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Avatar } from 'primereact/avatar';
+import { Button } from 'primereact/button';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
 import { fetchWithAuth, handleAuthError } from '../../utils/authUtils';
+import { FaUserPlus, FaUserMinus } from 'react-icons/fa';
+import eventBus, { EVENTS } from '../../utils/eventBus';
 
 interface User {
   id: number;
@@ -19,14 +22,17 @@ interface User {
   birthDate?: string;
   createdAt?: string;
   updatedAt?: string;
-  followers?: any[];
-  following?: any[];
+  followerIds?: number[];
+  followingIds?: number[];
 }
 
 const UserProfile = () => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -39,6 +45,26 @@ const UserProfile = () => {
       year: 'numeric'
     });
   };
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetchWithAuth(API_ENDPOINTS.users.me);
+        
+        if (!response.ok) {
+          if (handleAuthError(response, navigate)) return;
+          return;
+        }
+        
+        const { data } = await response.json();
+        setCurrentUser(data);
+      } catch (err) {
+        console.error('Error fetching current user:', err);
+      }
+    };
+    
+    fetchCurrentUser();
+  }, [navigate]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -79,6 +105,62 @@ const UserProfile = () => {
     }
   }, [id, navigate]);
 
+  // Check if current user is following the profile user
+  useEffect(() => {
+    if (currentUser && user) {
+      const isAlreadyFollowing = currentUser.followingIds?.includes(user.id);
+      setIsFollowing(!!isAlreadyFollowing);
+    }
+  }, [currentUser, user]);
+
+  const handleFollow = async () => {
+    if (!currentUser || !user) return;
+    
+    setFollowLoading(true);
+    try {
+      const isUnfollowing = isFollowing;
+      const endpoint = isUnfollowing 
+        ? API_ENDPOINTS.users.unfollow(currentUser.id, Number(id))
+        : API_ENDPOINTS.users.follow(currentUser.id, Number(id));
+      
+      const response = await fetchWithAuth(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        if (handleAuthError(response, navigate)) return;
+        throw new Error('Failed to follow/unfollow user');
+      }
+      
+      // Update the following status and refetch the user to update counts
+      setIsFollowing(!isFollowing);
+      
+      // Refetch user data to update follower counts
+      const userResponse = await fetchWithAuth(`${API_ENDPOINTS.users.all}/${id}`);
+      if (userResponse.ok) {
+        const { data } = await userResponse.json();
+        setUser({
+          ...data,
+          initials: data.firstName.charAt(0) + data.lastName.charAt(0)
+        });
+      }
+      
+      // Also refetch current user to update following list
+      const currentUserResponse = await fetchWithAuth(API_ENDPOINTS.users.me);
+      if (currentUserResponse.ok) {
+        const { data } = await currentUserResponse.json();
+        setCurrentUser(data);
+      }
+    } catch (err) {
+      console.error('Error while following/unfollowing:', err);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
   const renderProfile = (user: User) => (
     <div className="bg-white rounded-xl shadow-sm p-8">
       {error && (
@@ -88,7 +170,18 @@ const UserProfile = () => {
       )}
       
       <div className="flex flex-col gap-6">
-        <div className="text-3xl font-bold text-gray-800 mb-4">User Profile</div>
+        <div className="flex justify-between items-center mb-4">
+          <div className="text-3xl font-bold text-gray-800">User Profile</div>
+          {currentUser && currentUser.id !== user.id && (
+            <Button 
+              className={isFollowing ? 'p-button-danger' : 'p-button-primary'}
+              icon={isFollowing ? <FaUserMinus className="mr-2" /> : <FaUserPlus className="mr-2" />}
+              label={isFollowing ? 'Unfollow' : 'Follow'}
+              onClick={handleFollow}
+              loading={followLoading}
+            />
+          )}
+        </div>
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-8 mb-4">
             <div className="w-[5rem] h-[5rem] flex items-center justify-center">
@@ -143,12 +236,18 @@ const UserProfile = () => {
             
             <div className="py-2 flex items-center gap-4">
               <span className="font-semibold text-gray-700 min-w-[120px]">Following:</span>
-              <span className="text-gray-800">{user.following?.length || 0}</span>
+              <div className="flex items-center">
+                <span className="text-gray-800 font-medium">{user.followingIds?.length || 0}</span>
+                <span className="text-gray-500 text-sm ml-2">users</span>
+              </div>
             </div>
             
             <div className="py-2 flex items-center gap-4">
               <span className="font-semibold text-gray-700 min-w-[120px]">Followers:</span>
-              <span className="text-gray-800">{user.followers?.length || 0}</span>
+              <div className="flex items-center">
+                <span className="text-gray-800 font-medium">{user.followerIds?.length || 0}</span>
+                <span className="text-gray-500 text-sm ml-2">users</span>
+              </div>
             </div>
             
             {user.createdAt && (

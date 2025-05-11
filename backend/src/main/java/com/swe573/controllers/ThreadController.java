@@ -100,10 +100,9 @@ public class ThreadController {
 
     @Operation(summary = "Get followed threads", description = "Retrieves all threads that the current user follows")
     @GetMapping("/following")
-    public ResponseEntity<ApiResponse<List<ThreadDTO>>> getFollowedThreads(
-            @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
-        List<Thread> threads = threadService.getThreadsFollowedByUser(userId);
+    public ResponseEntity<ApiResponse<List<ThreadDTO>>> getFollowedThreads() {
+        User currentUser = authenticationService.getCurrentUser();
+        List<Thread> threads = threadService.getThreadsFollowedByUser(currentUser.getId());
         List<ThreadDTO> dtos = threads.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -168,38 +167,34 @@ public class ThreadController {
 
     @PostMapping("/{id}/follow")
     public ResponseEntity<ApiResponse<ThreadDTO>> followThread(
-            @PathVariable Long id,
-            Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
-        Thread thread = threadService.followThread(id, userId);
+            @PathVariable Long id) {
+        User currentUser = authenticationService.getCurrentUser();
+        Thread thread = threadService.followThread(id, currentUser.getId());
         return ResponseEntity.ok(ApiResponse.success("Thread followed successfully", convertToDTO(thread)));
     }
 
     @PostMapping("/{id}/unfollow")
     public ResponseEntity<ApiResponse<ThreadDTO>> unfollowThread(
-            @PathVariable Long id,
-            Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
-        Thread thread = threadService.unfollowThread(id, userId);
+            @PathVariable Long id) {
+        User currentUser = authenticationService.getCurrentUser();
+        Thread thread = threadService.unfollowThread(id, currentUser.getId());
         return ResponseEntity.ok(ApiResponse.success("Thread unfollowed successfully", convertToDTO(thread)));
     }
 
     @PostMapping("/{id}/vote")
     public ResponseEntity<ApiResponse<ThreadDTO>> voteThread(
             @PathVariable Long id,
-            @RequestParam boolean isUpvote,
-            Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
-        Thread thread = threadService.voteThread(id, userId, isUpvote);
+            @RequestParam boolean isUpvote) {
+        User currentUser = authenticationService.getCurrentUser();
+        Thread thread = threadService.voteThread(id, currentUser.getId(), isUpvote);
         return ResponseEntity.ok(ApiResponse.success("Vote recorded successfully", convertToDTO(thread)));
     }
 
     @DeleteMapping("/{id}/vote")
     public ResponseEntity<ApiResponse<ThreadDTO>> removeVote(
-            @PathVariable Long id,
-            Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
-        Thread thread = threadService.removeVote(id, userId);
+            @PathVariable Long id) {
+        User currentUser = authenticationService.getCurrentUser();
+        Thread thread = threadService.removeVote(id, currentUser.getId());
         return ResponseEntity.ok(ApiResponse.success("Vote removed successfully", convertToDTO(thread)));
     }
 

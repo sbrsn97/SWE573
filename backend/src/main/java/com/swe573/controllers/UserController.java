@@ -204,6 +204,16 @@ public class UserController {
                     return tagDTO;
                 })
                 .collect(Collectors.toSet()) : new HashSet<>());
+        
+        // Add followers and following IDs
+        dto.setFollowerIds(user.getFollowers() != null ? user.getFollowers().stream()
+                .map(User::getId)
+                .collect(Collectors.toSet()) : new HashSet<>());
+        
+        dto.setFollowingIds(user.getFollowing() != null ? user.getFollowing().stream()
+                .map(User::getId)
+                .collect(Collectors.toSet()) : new HashSet<>());
+                
         return dto;
     }
 } 

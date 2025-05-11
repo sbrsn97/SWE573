@@ -26,4 +26,11 @@ public interface VoteAnalyticsService {
     int getVoteCountByTimeRange(LocalDateTime start, LocalDateTime end);
     int getUpvoteCountByTimeRange(LocalDateTime start, LocalDateTime end);
     int getDownvoteCountByTimeRange(LocalDateTime start, LocalDateTime end);
+    
+    // Get hot threads (recent activity)
+    List<Thread> getHotThreads(int daysBack, int limit);
+    
+    // Get recommended threads
+    List<Thread> getRecommendedThreadsForUser(Long userId, int limit);
+    List<Thread> getSimilarThreads(Long threadId, int limit);
 } 

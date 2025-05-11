@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import { API_ENDPOINTS } from '../../config/config';
+import { setCurrentUserId } from '../../utils/authUtils';
 
 export interface User {
   id: number;
@@ -18,8 +19,8 @@ export interface User {
   birthDate?: string;
   createdAt?: string;
   updatedAt?: string;
-  followers?: any[];
-  following?: any[];
+  followerIds?: number[];
+  followingIds?: number[];
 }
 
 interface MainLayoutProps {
@@ -51,6 +52,12 @@ function MainLayout({ children }: MainLayoutProps) {
         }
 
         const { data } = await response.json();
+        
+        // Store the user ID for user-specific local storage
+        if (data.id) {
+          setCurrentUserId(data.id);
+        }
+        
         setUser(data);
       } catch (error) {
         console.error('Error fetching user:', error);

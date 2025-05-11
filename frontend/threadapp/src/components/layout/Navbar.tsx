@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaHome, FaSearch, FaSignOutAlt, FaList, FaShieldAlt, FaChevronDown, FaChevronUp, FaFilter } from 'react-icons/fa';
 import { API_ENDPOINTS } from '../../config/config';
+import { clearAllLocalStorage } from '../../utils/authUtils';
 import SearchResults from './SearchResults';
 
 interface User {
@@ -63,20 +64,20 @@ const Navbar = ({ user }: NavbarProps) => {
         const errorData = await response.json();
         if (response.status === 401 && errorData.code === 'TOKEN_EXPIRED') {
           // Token is already expired, just clear it and redirect
-          localStorage.removeItem('token');
+          clearAllLocalStorage();
           navigate('/auth');
           return;
         }
         throw new Error('Logout failed');
       }
 
-      // Clear token and redirect on successful logout
-      localStorage.removeItem('token');
+      // Clear token and all other storage data on successful logout
+      clearAllLocalStorage();
       navigate('/auth');
     } catch (error) {
       console.error('Logout failed:', error);
       // Even if the server request fails, we should still clear the token and redirect
-      localStorage.removeItem('token');
+      clearAllLocalStorage();
       navigate('/auth');
     }
   };

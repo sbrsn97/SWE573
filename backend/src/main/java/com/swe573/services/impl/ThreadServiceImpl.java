@@ -42,7 +42,18 @@ public class ThreadServiceImpl implements ThreadService {
     }
 
     @Override
+    @Transactional
     public void delete(Thread thread) {
+        // Additional safety check to ensure all collections are cleared before deletion
+        if (thread.getVotes() != null && !thread.getVotes().isEmpty()) {
+            for (Vote vote : new HashSet<>(thread.getVotes())) {
+                vote.setThread(null);
+                voteService.deleteVote(vote.getId());
+            }
+            thread.getVotes().clear();
+        }
+        
+        // Perform the actual deletion
         threadRepository.delete(thread);
     }
 

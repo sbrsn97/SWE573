@@ -19,6 +19,6 @@ public interface ThreadRepository extends JpaRepository<Thread, Long> {
            "LOWER(tag.label) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Thread> searchThreads(@Param("keyword") String keyword);
 
-    @Query("SELECT t FROM Thread t JOIN t.threadFollowers f WHERE f.id = :userId")
+    @Query("SELECT t FROM Thread t JOIN t.threadFollowers f WHERE f.id = :userId ORDER BY t.createdAt DESC")
     List<Thread> findThreadsFollowedByUser(@Param("userId") Long userId);
 } 

@@ -19,6 +19,7 @@ import com.swe573.exceptions.UnauthorizedException;
 import com.swe573.services.ThreadPreviewService;
 import com.swe573.dto.ThreadPreviewDTO;
 import com.swe573.dto.TagDTO;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -157,12 +158,24 @@ public class ThreadController {
     @DeleteMapping("/{id}/hard")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> hardDeleteThread(@PathVariable Long id) {
-        Thread thread = threadService.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Thread not found"));
-        
-        thread.hardDelete();
-        threadService.delete(thread);
-        return ResponseEntity.ok(ApiResponse.success("Thread permanently deleted", null));
+        try {
+            Thread thread = threadService.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Thread not found"));
+            
+            // Clear all associations before deleting
+            thread.hardDelete();
+            threadService.save(thread); // Save the thread with cleared associations first
+            
+            // Then delete it
+            threadService.delete(thread);
+            
+            return ResponseEntity.ok(ApiResponse.success("Thread permanently deleted", null));
+        } catch (Exception e) {
+            // Log the error for debugging
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Failed to delete thread: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/{id}/follow")
@@ -216,6 +229,8 @@ public class ThreadController {
         dto.setUpdatedAt(thread.getUpdatedAt());
         dto.setUpvoteCount(thread.getUpvoteCount());
         dto.setDownvoteCount(thread.getDownvoteCount());
+        dto.setActive(thread.isActive());
+        dto.setDeactivatedByRole(thread.getDeactivatedByRole() != null ? thread.getDeactivatedByRole().name() : null);
         dto.setTags(thread.getTags() != null ? thread.getTags().stream()
                 .map(tag -> {
                     TagDTO tagDTO = new TagDTO();

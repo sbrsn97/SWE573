@@ -1,14 +1,12 @@
-import React, { useCallback, useEffect, useState, useRef, MouseEvent, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useRef, MouseEvent, useMemo, forwardRef, useImperativeHandle } from 'react';
 import ReactFlow, {
   Node,
   Edge,
-  Controls,
   Background,
   useNodesState,
   useEdgesState,
   addEdge,
   Connection,
-  Panel,
   NodeMouseHandler,
   ReactFlowInstance,
   Viewport,
@@ -76,6 +74,8 @@ interface GraphVisualizationProps {
   onNodeDetails?: (nodeId: number) => void;
   onConnectionChange?: () => void;
   onEdgeEdit?: (edgeId: number) => void;
+  interactionMode?: 'move' | 'connect';
+  highlightedNodeId?: number | null;
 }
 
 // Define a custom node component without visible handles
@@ -88,21 +88,25 @@ const CustomNode = ({ data, id }: NodeProps) => {
       <div 
         style={{
           ...data.style,
-          border: data.isConnectionSource ? '2px solid #3498db' : 
+          border: data.isHighlighted ? '3px solid #f39c12' :
+                 data.isConnectionSource ? '2px solid #3498db' : 
                  data.isConnectionTarget ? '2px solid #2ecc71' : 
                  data.isBeingDragged ? '2px solid #f39c12' : 
                  data.style.border,
-          boxShadow: data.isBeingDragged ? 
-                     '0 8px 16px rgba(0, 0, 0, 0.5), inset 0 -5px 12px rgba(0, 0, 0, 0.2), inset 0 5px 12px rgba(255, 255, 255, 0.3)' : 
-                     '0 4px 10px rgba(0, 0, 0, 0.4), inset 0 -3px 8px rgba(0, 0, 0, 0.2), inset 0 3px 8px rgba(255, 255, 255, 0.3)',
+          boxShadow: data.isHighlighted ? 
+                    '0 0 20px rgba(243, 156, 18, 0.7), 0 8px 16px rgba(0, 0, 0, 0.3)' :
+                    data.isBeingDragged ? 
+                    '0 8px 16px rgba(0, 0, 0, 0.5), inset 0 -5px 12px rgba(0, 0, 0, 0.2), inset 0 5px 12px rgba(255, 255, 255, 0.3)' : 
+                    '0 4px 10px rgba(0, 0, 0, 0.4), inset 0 -3px 8px rgba(0, 0, 0, 0.2), inset 0 3px 8px rgba(255, 255, 255, 0.3)',
           transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-          transform: data.isBeingDragged ? 'scale(1.08) translateY(-5px)' : 
-                     data.isConnectionSource || data.isConnectionTarget ? 'scale(1.05)' : 'scale(1)',
+          transform: data.isHighlighted ? 'scale(1.1)' :
+                    data.isBeingDragged ? 'scale(1.08) translateY(-5px)' : 
+                    data.isConnectionSource || data.isConnectionTarget ? 'scale(1.05)' : 'scale(1)',
           backgroundImage: isCircle ? 
-                          `radial-gradient(circle at 30% 30%, ${adjustColor(data.style.background, 40)}, ${data.style.background} 70%, ${adjustColor(data.style.background, -30)} 100%)` :
-                          `linear-gradient(135deg, ${adjustColor(data.style.background, 20)}, ${data.style.background} 60%, ${adjustColor(data.style.background, -20)} 100%)`,
+                        `radial-gradient(circle at 30% 30%, ${adjustColor(data.style.background, 40)}, ${data.style.background} 70%, ${adjustColor(data.style.background, -30)} 100%)` :
+                        `linear-gradient(135deg, ${adjustColor(data.style.background, 20)}, ${data.style.background} 60%, ${adjustColor(data.style.background, -20)} 100%)`,
         }}
-        className={`node-container ${isCircle ? 'node-circle' : 'node-rect'}`}
+        className={`node-container ${isCircle ? 'node-circle' : 'node-rect'} ${data.isHighlighted ? 'node-highlighted' : ''}`}
       >
         {data.label}
         {isCircle && <div className="node-shine"></div>}
@@ -175,7 +179,14 @@ const adjustColor = (color: string, amount: number): string => {
   return color;
 };
 
-const GraphVisualization: React.FC<GraphVisualizationProps> = ({
+// Modify the component to use forwardRef
+const GraphVisualization = forwardRef<
+  { 
+    centerView: () => void;
+    zoomToNode: (nodeId: number) => void;
+  },
+  GraphVisualizationProps
+>(({
   nodes,
   edges,
   onNodePositionChange,
@@ -184,11 +195,15 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   onNodeDetails,
   onConnectionChange,
   onEdgeEdit,
-}) => {
+  interactionMode: propInteractionMode,
+  highlightedNodeId,
+}, ref) => {
   const flowInstanceRef = useRef<ReactFlowInstance | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  // Add interaction mode state
-  const [interactionMode, setInteractionMode] = useState<InteractionMode>(InteractionMode.MOVE);
+  // Set default interaction mode - use the prop if available, otherwise MOVE
+  const [interactionModeState, setInteractionModeState] = useState<InteractionMode>(
+    propInteractionMode === 'connect' ? InteractionMode.CONNECT : InteractionMode.MOVE
+  );
   // Add connection state tracking
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.NONE);
   const [sourceNodeId, setSourceNodeId] = useState<string | null>(null);
@@ -234,7 +249,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         padding: '2px',
         overflow: 'hidden',
       },
-      interactionMode: interactionMode,
+      interactionMode: interactionModeState,
       isConnectionSource: false,
       isConnectionTarget: false,
       isBeingDragged: false
@@ -264,7 +279,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           fontSize: '10px',
           opacity: 0.5,
         },
-        interactionMode: interactionMode,
+        interactionMode: interactionModeState,
         isConnectionSource: false,
         isConnectionTarget: false,
         isBeingDragged: false
@@ -312,7 +327,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
             fontSize: '10px',
             opacity: 0.5,
           },
-          interactionMode: interactionMode,
+          interactionMode: interactionModeState,
           isConnectionSource: false,
           isConnectionTarget: false,
           isBeingDragged: false
@@ -351,7 +366,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         ...node,
         data: {
           ...node.data,
-          interactionMode: interactionMode
+          interactionMode: interactionModeState
         }
       }))
     );
@@ -360,7 +375,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     setConnectionState(ConnectionState.NONE);
     setSourceNodeId(null);
     setHoveredNodeId(null);
-  }, [interactionMode, setNodes]);
+  }, [interactionModeState, setNodes]);
 
   // Update connection highlights when connection state changes
   useEffect(() => {
@@ -371,12 +386,13 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           ...node.data,
           isConnectionSource: node.id === sourceNodeId || node.id === connectionSourceId,
           isConnectionTarget: (node.id === hoveredNodeId && node.id !== sourceNodeId) || 
-                             (node.id === connectionTargetId && node.id !== connectionSourceId),
-          isBeingDragged: node.id === draggedNodeId
+                           (node.id === connectionTargetId && node.id !== connectionSourceId),
+          isBeingDragged: node.id === draggedNodeId,
+          isHighlighted: node.id === String(highlightedNodeId)
         }
       }))
     );
-  }, [sourceNodeId, hoveredNodeId, draggedNodeId, connectionSourceId, connectionTargetId, setNodes]);
+  }, [sourceNodeId, hoveredNodeId, draggedNodeId, connectionSourceId, connectionTargetId, highlightedNodeId, setNodes]);
 
   // Update the internal edges when props change
   useEffect(() => {
@@ -448,11 +464,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
                      Math.abs(endPosition.x - clickStartPosition.x) < CLICK_DISTANCE_THRESHOLD &&
                      Math.abs(endPosition.y - clickStartPosition.y) < CLICK_DISTANCE_THRESHOLD;
       
-      if (isClick && interactionMode === InteractionMode.MOVE && onNodeDetails) {
-        // If it was a click and we're in move mode, show node details
-        onNodeDetails(parseInt(node.id));
-      } else if (onNodePositionChange && node.position.x !== null && node.position.y !== null) {
-        // If it was a drag, update position
+      // For drag operations, update the node position
+      if (!isClick && onNodePositionChange && node.position.x !== null && node.position.y !== null) {
         onNodePositionChange(
           parseInt(node.id),
           node.position.x,
@@ -465,7 +478,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       setClickStartTime(null);
       setClickStartPosition(null);
     },
-    [onNodePositionChange, onNodeDetails, interactionMode, clickStartTime, clickStartPosition]
+    [onNodePositionChange, clickStartTime, clickStartPosition]
   );
 
   // Enhanced node click handler for connection mode
@@ -474,7 +487,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       // Don't handle click for origin node
       if (node.id === ORIGIN_NODE_ID) return;
       
-      if (interactionMode === InteractionMode.CONNECT) {
+      if (interactionModeState === InteractionMode.CONNECT) {
         // Handle connection logic
         if (connectionState === ConnectionState.NONE) {
           // Select source node
@@ -524,9 +537,14 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           setSourceNodeId(null);
           setHoveredNodeId(null);
         }
+      } else if (interactionModeState === InteractionMode.MOVE) {
+        // In MOVE mode, show node details on click
+        if (onNodeDetails) {
+          onNodeDetails(parseInt(node.id));
+        }
       }
     },
-    [interactionMode, connectionState, sourceNodeId, setEdges, onConnectionChange]
+    [interactionModeState, connectionState, sourceNodeId, setEdges, onConnectionChange, onNodeDetails]
   );
   
   // Handle connection drag start
@@ -546,7 +564,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   const onNodeMouseEnter: NodeMouseHandler = useCallback(
     (event, node) => {
       // When in connect mode with source selected
-      if (interactionMode === InteractionMode.CONNECT && 
+      if (interactionModeState === InteractionMode.CONNECT && 
           connectionState === ConnectionState.SOURCE_SELECTED && 
           sourceNodeId !== node.id) {
         setHoveredNodeId(node.id);
@@ -557,7 +575,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         setConnectionTargetId(node.id);
       }
     },
-    [interactionMode, connectionState, sourceNodeId, connectionDragging, connectionSourceId]
+    [interactionModeState, connectionState, sourceNodeId, connectionDragging, connectionSourceId]
   );
 
   // Enhanced node mouse leave handler for highlighting
@@ -589,7 +607,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
 
   // Toggle mode between move and connect
   const toggleInteractionMode = useCallback(() => {
-    setInteractionMode(mode => 
+    setInteractionModeState(mode => 
       mode === InteractionMode.MOVE ? InteractionMode.CONNECT : InteractionMode.MOVE
     );
   }, []);
@@ -634,178 +652,112 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   // Memoize nodeTypes to prevent recreation on each render
   const nodeTypes = useMemo(() => ({ customNode: CustomNode }), []);
 
+  // Add some basic CSS for better styling
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .react-flow__edge-path {
+        stroke-width: 2;
+        transition: stroke 0.3s, stroke-width 0.3s;
+      }
+      .react-flow__edge:hover .react-flow__edge-path {
+        stroke-width: 3;
+        stroke: #3498db;
+      }
+      .node-container {
+        transition: all 0.3s;
+      }
+      .node-container:hover {
+        transform: scale(1.05);
+      }
+      .node-highlighted {
+        animation: pulse-highlight 1.5s infinite;
+      }
+      @keyframes pulse-highlight {
+        0% {
+          box-shadow: 0 0 10px rgba(243, 156, 18, 0.7);
+        }
+        50% {
+          box-shadow: 0 0 25px rgba(243, 156, 18, 0.9);
+        }
+        100% {
+          box-shadow: 0 0 10px rgba(243, 156, 18, 0.7);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Update the interaction mode when the prop changes
+  useEffect(() => {
+    if (propInteractionMode) {
+      setInteractionModeState(propInteractionMode === 'connect' ? InteractionMode.CONNECT : InteractionMode.MOVE);
+    }
+  }, [propInteractionMode]);
+
+  // Function to zoom to a specific node
+  const zoomToNode = useCallback((nodeId: number) => {
+    if (!flowInstanceRef.current) return;
+    
+    // Find the node
+    const node = reactFlowNodes.find(n => n.id === nodeId.toString());
+    if (!node) return;
+    
+    // Zoom to the node with animation
+    flowInstanceRef.current.setViewport(
+      {
+        x: -node.position.x + 200, // Center the node horizontally
+        y: -node.position.y + 200, // Center the node vertically
+        zoom: 1.5 // Slightly zoomed in
+      },
+      { duration: 800 } // Animation duration
+    );
+  }, [reactFlowNodes]);
+
+  // Expose methods via the ref
+  useImperativeHandle(ref, () => ({
+    centerView,
+    zoomToNode
+  }));
+
   return (
-    <div style={{ width: '100%', height: '600px', position: 'relative' }}>
-      <style>
-        {`
-          .react-flow__edge-path {
-            stroke-width: 2;
-            transition: stroke 0.3s, stroke-width 0.3s;
-          }
-
-          .react-flow__edge:hover .react-flow__edge-path {
-            stroke-width: 3;
-            stroke: #3498db;
-          }
-
-          @keyframes pulse {
-            0% { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), inset 0 -3px 8px rgba(0, 0, 0, 0.2), inset 0 3px 8px rgba(255, 255, 255, 0.3); }
-            50% { box-shadow: 0 6px 15px rgba(0, 0, 0, 0.45), inset 0 -4px 10px rgba(0, 0, 0, 0.25), inset 0 4px 10px rgba(255, 255, 255, 0.35); }
-            100% { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), inset 0 -3px 8px rgba(0, 0, 0, 0.2), inset 0 3px 8px rgba(255, 255, 255, 0.3); }
-          }
-          
-          @keyframes shimmer {
-            0% { opacity: 0.5; transform: translate(20%, 10%) scale(1); }
-            50% { opacity: 0.7; transform: translate(15%, 5%) scale(1.1); }
-            100% { opacity: 0.5; transform: translate(20%, 10%) scale(1); }
-          }
-
-          .node-container {
-            position: relative;
-            z-index: 1;
-            overflow: hidden;
-          }
-
-          .node-container:hover {
-            animation: pulse 2s infinite;
-            z-index: 10;
-          }
-
-          .node-circle {
-            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.2));
-          }
-          
-          .node-rect {
-            filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
-          }
-
-          .node-shine {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 60%;
-            height: 60%;
-            border-radius: 50%;
-            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.5) 30%, rgba(255, 255, 255, 0) 70%);
-            pointer-events: none;
-            transform: translate(20%, 10%);
-            opacity: 0.5;
-            animation: shimmer 4s infinite ease-in-out;
-          }
-
-          .node-container:hover .node-shine {
-            animation: shimmer 2s infinite ease-in-out;
-          }
-
-          .react-flow__node.selected .node-container {
-            box-shadow: 0 6px 16px rgba(52, 152, 219, 0.5), inset 0 -3px 8px rgba(0, 0, 0, 0.2), inset 0 3px 8px rgba(255, 255, 255, 0.3) !important;
-            border: 2px solid #3498db !important;
-            transform: scale(1.05);
-          }
-          
-          /* Animation for edges */
-          @keyframes dash {
-            from {
-              stroke-dashoffset: 20;
-            }
-            to {
-              stroke-dashoffset: 0;
-            }
-          }
-          
-          .react-flow__edge.selected .react-flow__edge-path {
-            stroke-dasharray: 5;
-            animation: dash 1s linear infinite;
-            stroke: #3498db;
-            stroke-width: 3;
-          }
-
-          .react-flow__edge:hover .react-flow__edge-path {
-            stroke-width: 3;
-            stroke: #3498db;
-            cursor: pointer;
-          }
-        `}
-      </style>
+    <div className="react-flow-wrapper w-full h-full">
       <ReactFlow
         nodes={reactFlowNodes}
         edges={reactFlowEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onConnectStart={onConnectStart}
-        onConnectEnd={onConnectEnd}
+        onNodeClick={onNodeClick}
         onNodeDragStart={onNodeDragStart}
         onNodeDragStop={onNodeDragStop}
         onNodeDoubleClick={onNodeDoubleClick}
-        onNodeClick={onNodeClick}
+        onEdgeDoubleClick={onEdgeDoubleClick}
         onNodeMouseEnter={onNodeMouseEnter}
         onNodeMouseLeave={onNodeMouseLeave}
-        onEdgeDoubleClick={onEdgeDoubleClick}
         onPaneClick={onPaneClick}
         onInit={onInit}
+        fitView={initialNodes.length > 0}
+        minZoom={0.1}
+        maxZoom={3}
         defaultViewport={defaultViewport}
-        nodesDraggable={interactionMode === InteractionMode.MOVE}
-        nodesConnectable={interactionMode === InteractionMode.CONNECT}
-        elementsSelectable={true}
         nodeTypes={nodeTypes}
         connectionMode={ConnectionMode.Loose}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
+        nodesDraggable={interactionModeState === InteractionMode.MOVE}
+        nodesConnectable={interactionModeState === InteractionMode.CONNECT}
+        elementsSelectable={true}
+        proOptions={{ hideAttribution: true }}
       >
         <Background />
-        <Controls />
-        <Panel position="top-right">
-          <div className="flex gap-2">
-            {/* Mode toggle button */}
-            <button 
-              onClick={toggleInteractionMode}
-              className={`bg-white p-2 rounded-full shadow transition-colors ${
-                interactionMode === InteractionMode.MOVE ? 'bg-blue-100' : 'bg-green-100'
-              }`}
-              title={`Current mode: ${interactionMode === InteractionMode.MOVE ? 'Move' : 'Connect'}`}
-            >
-              {interactionMode === InteractionMode.MOVE ? (
-                <FaArrowsAlt size={18} className="text-blue-500" />
-              ) : (
-                <FaLink size={18} className="text-green-500" />
-              )}
-            </button>
-            
-            {/* Help button */}
-            <button 
-              onClick={toggleHelp}
-              className="bg-white p-2 rounded-full shadow hover:bg-gray-100 transition-colors"
-              title="Help"
-            >
-              <FaInfoCircle size={18} className="text-blue-500" />
-            </button>
-          </div>
-          
-          {showHelp && (
-            <div className="absolute top-10 right-0 bg-white p-3 rounded shadow-md w-64 z-50">
-              <button 
-                className="mb-3 w-full px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center gap-2 text-sm opacity-80 hover:opacity-100 transition-opacity"
-                onClick={() => {
-                  centerView();
-                  setShowHelp(false);
-                }}
-              >
-                <FaCrosshairs size={14} />
-                <span>Center View</span>
-              </button>
-              
-              <div className="text-sm space-y-2 text-gray-600">
-                <p>• Click mode button to toggle between:</p>
-                <p>  - Move: Drag nodes to reposition</p>
-                <p>  - Connect: Click source node, then target node</p>
-                <p>• Click for node details</p>
-                <p>• Use mouse wheel to zoom</p>
-              </div>
-            </div>
-          )}
-        </Panel>
       </ReactFlow>
     </div>
   );
-};
+});
 
 export default GraphVisualization; 

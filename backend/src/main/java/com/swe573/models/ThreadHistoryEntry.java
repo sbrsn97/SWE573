@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.EqualsAndHashCode;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Data
 @Entity
@@ -18,6 +20,7 @@ public class ThreadHistoryEntry extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "thread_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Thread thread;
 
     @ManyToOne(fetch = FetchType.LAZY)

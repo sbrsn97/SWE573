@@ -31,7 +31,7 @@ public class Thread extends BaseEntity {
     @JsonIgnoreProperties({"threads", "hibernateLazyInitializer", "handler"})
     private User author;
 
-    @ManyToMany
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
         name = "thread_tags",
         joinColumns = @JoinColumn(name = "thread_id"),
@@ -41,7 +41,7 @@ public class Thread extends BaseEntity {
     private Set<Tag> tags = new HashSet<>();
 
     // Users following/subscribed to this thread
-    @ManyToMany
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
         name = "thread_followers",
         joinColumns = @JoinColumn(name = "thread_id"),
@@ -52,14 +52,17 @@ public class Thread extends BaseEntity {
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"thread", "hibernateLazyInitializer", "handler"})
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Set<Comment> comments = new HashSet<>();
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"thread", "hibernateLazyInitializer", "handler"})
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Set<Node> nodes = new HashSet<>();
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"thread", "hibernateLazyInitializer", "handler"})
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Set<Edge> edges = new HashSet<>();
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -112,13 +115,43 @@ public class Thread extends BaseEntity {
 
     @Override
     public void hardDelete() {
-        // Clean up associations - clear votes first to avoid referential integrity issues
-        votes.clear();
-        comments.clear();
-        nodes.clear();
-        edges.clear();
-        tags.clear();
-        threadFollowers.clear();
+        // Handle each collection carefully to avoid constraint violations
+        if (votes != null) {
+            for (Vote vote : new HashSet<>(votes)) {
+                vote.setThread(null); // Detach from thread
+                votes.remove(vote);
+            }
+        }
+        
+        if (comments != null) {
+            for (Comment comment : new HashSet<>(comments)) {
+                comment.setThread(null); // Detach from thread
+                comments.remove(comment);
+            }
+        }
+        
+        if (nodes != null) {
+            for (Node node : new HashSet<>(nodes)) {
+                node.setThread(null); // Detach from thread
+                nodes.remove(node);
+            }
+        }
+        
+        if (edges != null) {
+            for (Edge edge : new HashSet<>(edges)) {
+                edge.setThread(null); // Detach from thread
+                edges.remove(edge);
+            }
+        }
+        
+        // Clear many-to-many relationships
+        if (tags != null) {
+            tags.clear();
+        }
+        
+        if (threadFollowers != null) {
+            threadFollowers.clear();
+        }
     }
 
     @Override

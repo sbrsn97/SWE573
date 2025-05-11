@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "edges", indexes = {
@@ -20,11 +22,13 @@ public class Edge extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_node_id")
     @JsonIgnoreProperties({"thread", "details", "hibernateLazyInitializer", "handler"})
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Node sourceNode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_node_id")
     @JsonIgnoreProperties({"thread", "details", "hibernateLazyInitializer", "handler"})
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Node targetNode;
 
     @Column
@@ -45,6 +49,7 @@ public class Edge extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "thread_id")
     @JsonIgnoreProperties({"nodes", "edges", "hibernateLazyInitializer", "handler"})
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Thread thread;
 
     @PrePersist

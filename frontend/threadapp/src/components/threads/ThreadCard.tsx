@@ -21,6 +21,8 @@ interface ThreadCardProps {
     upvoteCount: number;
     downvoteCount: number;
     createdAt: string;
+    active: boolean;
+    deactivatedByRole: string | null;
     tags: Array<{
       id: number;
       label: string;
@@ -87,11 +89,23 @@ const ThreadCard: React.FC<ThreadCardProps> = ({ thread }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
+    <div className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-4 ${!thread.active ? 'border border-red-200 bg-red-50' : ''}`}>
       <Link to={`/threads/${thread.id}`} className="block">
-        <h3 className="text-lg font-semibold text-blue-800 hover:text-blue-600 mb-2 transition-colors">
-          {thread.title}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-blue-800 hover:text-blue-600 mb-2 transition-colors">
+            {thread.title}
+          </h3>
+          {!thread.active && (
+            <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full flex items-center">
+              <span>Inactive</span>
+              {thread.deactivatedByRole && (
+                <span className="ml-1 text-xs opacity-75">
+                  (by {thread.deactivatedByRole.toLowerCase()})
+                </span>
+              )}
+            </span>
+          )}
+        </div>
       </Link>
       
       {thread.description && (

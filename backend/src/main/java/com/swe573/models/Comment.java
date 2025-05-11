@@ -31,16 +31,18 @@ public class Comment extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "thread_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Thread thread;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Comment parent;
     
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Comment> children = new HashSet<>();
 
-    @ManyToMany
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
         name = "comment_referenced_nodes",
         joinColumns = @JoinColumn(name = "comment_id"),
@@ -105,10 +107,24 @@ public class Comment extends BaseEntity {
 
     @Override
     public void hardDelete() {
-        // Clean up associations - clear votes first to avoid referential integrity issues
-        votes.clear();
-        referencedNodes.clear();
-        children.clear();
+        // Clean up associations
+        if (votes != null) {
+            for (Vote vote : new HashSet<>(votes)) {
+                vote.setComment(null);
+                votes.remove(vote);
+            }
+        }
+        
+        if (referencedNodes != null) {
+            referencedNodes.clear();
+        }
+        
+        if (children != null) {
+            for (Comment child : new HashSet<>(children)) {
+                child.setParent(null);
+                children.remove(child);
+            }
+        }
     }
 
     @Override

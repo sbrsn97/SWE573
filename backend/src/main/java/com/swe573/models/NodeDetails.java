@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "node_details", indexes = {
@@ -20,6 +22,7 @@ public class NodeDetails extends BaseEntity {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "node_id", nullable = false)
     @JsonIgnoreProperties({"details", "thread", "hibernateLazyInitializer", "handler"})
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Node node;
 
     @Column(name = "wikidata_entity_id", nullable = false)

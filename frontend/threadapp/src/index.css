@@ -40,6 +40,27 @@ h1 {
   line-height: 1.1;
 }
 
+/* Animation for highlighting user comments */
+@keyframes highlightBlue {
+  0% { background-color: rgba(219, 234, 254, 0.7); }
+  50% { background-color: rgba(191, 219, 254, 0.7); }
+  100% { background-color: rgba(219, 234, 254, 0.7); }
+}
+
+/* Animation for highlighting author comments */
+@keyframes highlightYellow {
+  0% { background-color: rgba(254, 249, 195, 0.7); }
+  50% { background-color: rgba(253, 224, 71, 0.5); }
+  100% { background-color: rgba(254, 249, 195, 0.7); }
+}
+
+.animate-highlight-blue {
+  animation: highlightBlue 2s infinite;
+}
+
+.animate-highlight-yellow {
+  animation: highlightYellow 2s infinite;
+}
 
 @media (prefers-color-scheme: light) {
   :root {

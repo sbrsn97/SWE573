@@ -12,6 +12,7 @@ interface Thread {
   title: string;
   description: string | null;
   authorId: number;
+  createdAt: string;
 }
 
 interface RecentThread {
@@ -41,7 +42,13 @@ const Sidebar = () => {
       }
       
       const { data } = await response.json();
-      setFollowedThreads(data);
+      
+      // Sort threads by creation date (newest first)
+      const sortedThreads = [...data].sort((a, b) => {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      
+      setFollowedThreads(sortedThreads);
     } catch (err) {
       console.error('Error fetching followed threads:', err);
     } finally {
@@ -108,7 +115,7 @@ const Sidebar = () => {
       <div className="p-4">
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-sm hover:shadow-md"
+          className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow hover:shadow-md hover:translate-y-[-1px] active:translate-y-0"
         >
           <FaPlus className="text-lg text-white" />
           <span className="font-medium text-white">New Thread</span>
@@ -117,16 +124,18 @@ const Sidebar = () => {
       
       {/* Followed Threads Section */}
       <div className="mt-4">
-        <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-100">
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-100 mb-2">
           <FaBookmark className="text-blue-500" />
-          <h3 className="font-medium text-gray-700">Followed Threads</h3>
+          <h3 className="font-semibold text-gray-800">Followed Threads</h3>
         </div>
         
         <div className="py-2">
           {loading ? (
-            <div className="px-4 py-2 text-sm text-gray-500">Loading...</div>
+            <div className="px-4 py-2 text-sm text-gray-500 flex items-center justify-center">
+              <div className="animate-pulse">Loading...</div>
+            </div>
           ) : followedThreads.length === 0 ? (
-            <div className="px-4 py-2 text-sm text-gray-500">
+            <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50/50 mx-2 rounded-md flex items-center justify-center">
               You're not following any threads yet.
             </div>
           ) : (
@@ -136,10 +145,13 @@ const Sidebar = () => {
                   <li key={thread.id}>
                     <Link
                       to={`/threads/${thread.id}`}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 truncate"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50/60 transition-colors rounded-md mx-1 group"
                       title={thread.title}
                     >
-                      {thread.title}
+                      <div className="w-1 h-8 bg-blue-500/0 group-hover:bg-blue-500 rounded transition-all mr-2 flex-shrink-0"></div>
+                      <div className="truncate">
+                        {thread.title}
+                      </div>
                     </Link>
                   </li>
                 ))}
@@ -148,7 +160,7 @@ const Sidebar = () => {
               {hasMoreFollowedThreads && (
                 <button
                   onClick={() => setShowAllFollowed(!showAllFollowed)}
-                  className="w-full flex items-center justify-center gap-1 text-sm text-blue-600 mt-2 py-1 hover:bg-gray-50"
+                  className="w-full flex items-center justify-center gap-1 text-sm text-blue-600 mt-2 py-1.5 hover:bg-blue-50 rounded-md transition-colors mx-1"
                 >
                   {showAllFollowed ? (
                     <>
@@ -170,13 +182,13 @@ const Sidebar = () => {
       
       {/* Recent Threads Section */}
       <div className="mt-4">
-        <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-100">
-          <FaRegClock className="text-gray-500" />
-          <h3 className="font-medium text-gray-700">Recent</h3>
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-100 mb-2">
+          <FaRegClock className="text-blue-400" />
+          <h3 className="font-semibold text-gray-800">Recent</h3>
         </div>
         <div className="py-2">
           {recentThreads.length === 0 ? (
-            <div className="px-4 py-2 text-sm text-gray-500">
+            <div className="px-4 py-3 text-sm text-gray-500 bg-gray-50/50 mx-2 rounded-md flex items-center justify-center">
               No recently viewed threads.
             </div>
           ) : (
@@ -186,10 +198,13 @@ const Sidebar = () => {
                   <li key={thread.id}>
                     <Link
                       to={`/threads/${thread.id}`}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 truncate"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50/80 transition-colors rounded-md mx-1 group"
                       title={thread.title}
                     >
-                      {thread.title}
+                      <div className="w-1 h-8 bg-gray-300/0 group-hover:bg-gray-300 rounded transition-all mr-2 flex-shrink-0"></div>
+                      <div className="truncate">
+                        {thread.title}
+                      </div>
                     </Link>
                   </li>
                 ))}
@@ -198,7 +213,7 @@ const Sidebar = () => {
               {hasMoreRecentThreads && (
                 <button
                   onClick={() => setShowAllRecent(!showAllRecent)}
-                  className="w-full flex items-center justify-center gap-1 text-sm text-blue-600 mt-2 py-1 hover:bg-gray-50"
+                  className="w-full flex items-center justify-center gap-1 text-sm text-blue-600 mt-2 py-1.5 hover:bg-blue-50 rounded-md transition-colors mx-1"
                 >
                   {showAllRecent ? (
                     <>

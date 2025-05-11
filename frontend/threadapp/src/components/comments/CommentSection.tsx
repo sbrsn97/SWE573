@@ -8,6 +8,7 @@ import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '.
 
 interface CommentSectionProps {
   threadId: number;
+  threadAuthorId?: number;
 }
 
 interface CreateCommentDTO {
@@ -27,7 +28,7 @@ interface VoteStatus {
   voteCount: number;
 }
 
-const CommentSection = ({ threadId }: CommentSectionProps) => {
+const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
   const [parentComments, setParentComments] = useState<Comment[]>([]);
   const [childComments, setChildComments] = useState<Record<number, Comment[]>>({});
   const [childCounts, setChildCounts] = useState<CommentCounts>({});
@@ -632,19 +633,22 @@ const CommentSection = ({ threadId }: CommentSectionProps) => {
           {parentComments.map((comment) => (
             <div 
               key={comment.id} 
-              className={`border-b border-gray-200 pb-4 last:border-b-0 rounded-lg p-4 shadow-sm 
-                hover:shadow-md transition-all duration-200 ease-in-out ${
+              className={`mb-6 border-b border-gray-200 pb-4 last:border-b-0 ${
                 comment.authorId === currentUserId 
-                  ? 'bg-blue-50/50' 
+                  ? 'animate-highlight-blue' 
+                  : comment.authorId === threadAuthorId
+                  ? 'animate-highlight-yellow'
                   : 'bg-gray-50/50'
-              }`}
+              } rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-200 ease-in-out`}
             >
               {/* Parent comment */}
               <div className="mb-2">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-2">
                     <div className={`rounded-full w-8 h-8 flex items-center justify-center text-white ${
-                      comment.authorId === currentUserId ? 'bg-blue-500' : 'bg-gray-500'
+                      comment.authorId === currentUserId ? 'bg-blue-500' 
+                      : comment.authorId === threadAuthorId ? 'bg-yellow-500'
+                      : 'bg-gray-500'
                     }`}>
                       <FaUser size={14} />
                     </div>
@@ -658,6 +662,9 @@ const CommentSection = ({ threadId }: CommentSectionProps) => {
                         </Link>
                         {comment.authorId === currentUserId && (
                           <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">You</span>
+                        )}
+                        {comment.authorId === threadAuthorId && comment.authorId !== currentUserId && (
+                          <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">Author</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-500">
@@ -814,13 +821,17 @@ const CommentSection = ({ threadId }: CommentSectionProps) => {
                       className={`p-3 rounded-lg shadow-sm hover:shadow transition-all duration-200 ${
                         childComment.authorId === currentUserId 
                           ? 'bg-blue-50/70' 
+                          : childComment.authorId === threadAuthorId
+                          ? 'bg-yellow-50/70'
                           : 'bg-gray-50/70'
                       }`}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-2">
                           <div className={`rounded-full w-6 h-6 flex items-center justify-center text-white ${
-                            childComment.authorId === currentUserId ? 'bg-blue-500' : 'bg-gray-500'
+                            childComment.authorId === currentUserId ? 'bg-blue-500' 
+                            : childComment.authorId === threadAuthorId ? 'bg-yellow-500'
+                            : 'bg-gray-500'
                           }`}>
                             <FaUser size={10} />
                           </div>
@@ -834,6 +845,9 @@ const CommentSection = ({ threadId }: CommentSectionProps) => {
                               </Link>
                               {childComment.authorId === currentUserId && (
                                 <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full text-[10px]">You</span>
+                              )}
+                              {childComment.authorId === threadAuthorId && childComment.authorId !== currentUserId && (
+                                <span className="ml-2 text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full text-[10px]">Author</span>
                               )}
                             </div>
                             <div className="text-xs text-gray-500">

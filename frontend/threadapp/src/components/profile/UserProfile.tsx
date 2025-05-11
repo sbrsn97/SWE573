@@ -63,6 +63,8 @@ interface Thread {
   downvoteCount: number;
   createdAt: string;
   updatedAt: string;
+  active: boolean;
+  deactivatedByRole: string | null;
   tags: Array<{
     id: number;
     label: string;
@@ -843,8 +845,25 @@ const UserProfile = () => {
   
   // Apply filters and pagination to threads
   const applyFiltersAndPagination = (threads: Thread[]) => {
-    // First apply sorting
-    let filteredThreads = applySorting(threads);
+    // First filter out inactive threads, but keep them for the owner and admins
+    let filteredThreads = threads.filter(thread => {
+      // Always show active threads
+      if (thread.active !== false) {
+        return true;
+      }
+      
+      // Show inactive threads to their owners or admins
+      if (currentUser) {
+        const isOwner = thread.authorId === currentUser.id;
+        const isAdmin = currentUser.role === 'ADMIN';
+        return isOwner || isAdmin;
+      }
+      
+      return false;
+    });
+    
+    // Then apply sorting
+    filteredThreads = applySorting(filteredThreads);
     
     // Filter by tags
     if (threadFilterTags.length > 0) {
@@ -1282,6 +1301,11 @@ const UserProfile = () => {
         <div className="mb-4 flex items-center justify-between">
           <div className="text-sm text-gray-500">
             Showing {userThreads.length} of {allUserThreads.length} threads (page {currentPage} of {totalPages})
+            {userThreads.some(thread => !thread.active) && (
+              <span className="ml-2 italic text-xs text-red-600">
+                Including inactive threads only visible to you and admins
+              </span>
+            )}
           </div>
           <div className="lg:hidden">
             <Button

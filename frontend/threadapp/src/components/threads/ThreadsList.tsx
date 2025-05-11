@@ -16,6 +16,8 @@ interface Thread {
   downvoteCount: number;
   createdAt: string;
   updatedAt: string;
+  active: boolean;
+  deactivatedByRole: string | null;
   tags: Array<{
     id: number;
     label: string;
@@ -165,6 +167,11 @@ const ThreadsList = () => {
     return sortedThreads;
   };
   
+  // Filter out inactive threads
+  const filterActiveThreads = (threads: Thread[]): Thread[] => {
+    return threads.filter(thread => thread.active !== false);
+  };
+  
   // Fetch threads with pagination and filters
   useEffect(() => {
     const fetchThreads = async () => {
@@ -183,8 +190,14 @@ const ThreadsList = () => {
         if (response.ok) {
           const result = await response.json();
           
-          // Debugging
-          console.log('API Response:', result);
+          // Enhanced debugging
+          console.log('API Response Structure:', {
+            success: result.success,
+            message: result.message, 
+            dataType: result.data ? (Array.isArray(result.data) ? 'array' : typeof result.data) : 'null',
+            dataLength: result.data && Array.isArray(result.data) ? result.data.length : null,
+            firstItem: result.data && Array.isArray(result.data) && result.data.length > 0 ? result.data[0] : null
+          });
           
           // Check the structure of the response
           if (result && result.data) {
@@ -194,8 +207,11 @@ const ThreadsList = () => {
             
             // Direct response format - array of threads
             if (Array.isArray(result.data)) {
-              // Store all threads for filtering
-              const sortedThreads = applySorting(result.data);
+              // First, filter out inactive threads
+              const activeThreads = filterActiveThreads(result.data);
+              
+              // Then sort the active threads
+              const sortedThreads = applySorting(activeThreads);
               setAllThreads(sortedThreads);
               
               if (isClientFiltering) {
@@ -258,12 +274,15 @@ const ThreadsList = () => {
             else if (typeof result.data === 'object' && result.data.content) {
               const paginatedData = result.data as PaginatedResponse;
               
+              // Filter inactive threads
+              const activeThreads = filterActiveThreads(paginatedData.content);
+              
               if (isClientFiltering) {
                 // If we already have all threads in our state, use those
                 // Otherwise use what we got from the paginated response
                 const threadsToFilter = allThreads.length > 0 
                   ? allThreads 
-                  : applySorting(paginatedData.content);
+                  : applySorting(activeThreads);
                 
                 // Apply client-side filters
                 let filteredThreads = threadsToFilter;
@@ -312,14 +331,18 @@ const ThreadsList = () => {
               } else {
                 // No client filtering, use server pagination
                 // Still sort client-side to ensure it's working
-                const sortedContent = applySorting(paginatedData.content);
+                const sortedContent = applySorting(activeThreads);
                 setThreads(sortedContent);
-                setTotalPages(paginatedData.totalPages || 1);
+                setTotalPages(Math.ceil(activeThreads.length / pageSize) || 1);
               }
             }
             // Unknown format, use as-is
             else {
-              setThreads(result.data);
+              // Filter inactive threads
+              const activeThreads = Array.isArray(result.data) 
+                ? filterActiveThreads(result.data) 
+                : [];
+              setThreads(activeThreads);
               setTotalPages(1);
             }
           } else {
@@ -695,48 +718,68 @@ const ThreadsList = () => {
 
   return (
     <MainLayout>
-      {() => (
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Main Content - Now first in order */}
-          <div className="flex-1">
-            <section className="bg-white rounded-xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-semibold text-gray-800">All Threads</h1>
-                <div className="text-sm text-gray-500">
-                  {threads.length > 0 && `Showing page ${currentPage} of ${totalPages}`}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Main Content - Now first in order */}
+        <div className="flex-1">
+          <section className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-semibold text-gray-800">All Threads</h1>
+              <div className="text-sm text-gray-500">
+                {threads.length > 0 && `Showing page ${currentPage} of ${totalPages}`}
+              </div>
+            </div>
+            
+            {/* Filter Sidebar - Shown on mobile */}
+            <div className="lg:hidden mb-6">
+              {renderFilterSidebar()}
+            </div>
+            
+            {/* Thread List */}
+            {loading ? (
+              <div className="p-8 flex justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+              </div>
+            ) : error ? (
+              <div className="p-6 bg-red-50 rounded-lg border border-red-100 text-red-700">
+                <div className="flex items-center mb-2">
+                  <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <h3 className="text-lg font-medium">Error Loading Threads</h3>
                 </div>
+                <p>{error}</p>
               </div>
-              
-              {/* Filter Sidebar - Shown on mobile */}
-              <div className="lg:hidden mb-6">
-                {renderFilterSidebar()}
+            ) : threads.length === 0 ? (
+              <div className="p-8 text-center">
+                <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 className="text-xl font-medium text-gray-600 mb-2">No Threads Found</h3>
+                <p className="text-gray-500 mb-6">
+                  {selectedTags.length > 0 || dateFilter !== 'all' 
+                    ? 'Try removing some filters to see more results.' 
+                    : 'There are no threads available yet.'}
+                </p>
+                <p className="text-sm text-gray-400">API Debug: Check console for details</p>
               </div>
-              
-              {loading ? (
-                <div className="text-center py-20 text-gray-500">Loading threads...</div>
-              ) : error ? (
-                <div className="bg-red-50 text-red-600 p-4 rounded-lg">{error}</div>
-              ) : threads.length === 0 ? (
-                <div className="text-center py-20 text-gray-500">No threads found matching your filters</div>
-              ) : (
-                <>
-                  <div className="space-y-4">
-                    {threads.map(thread => (
-                      <ThreadCard key={thread.id} thread={thread} />
-                    ))}
-                  </div>
-                  {renderPagination()}
-                </>
-              )}
-            </section>
-          </div>
-          
-          {/* Filter Sidebar - Now second in order and shown on desktop */}
-          <div className="hidden lg:block lg:w-64 sticky top-24 self-start">
-            {renderFilterSidebar()}
-          </div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  {threads.map(thread => (
+                    <ThreadCard key={thread.id} thread={thread} />
+                  ))}
+                </div>
+                {renderPagination()}
+              </>
+            )}
+          </section>
         </div>
-      )}
+        
+        {/* Filter Sidebar - Now second in order and shown on desktop */}
+        <div className="hidden lg:block lg:w-64 sticky top-24 self-start">
+          {renderFilterSidebar()}
+        </div>
+      </div>
     </MainLayout>
   );
 };

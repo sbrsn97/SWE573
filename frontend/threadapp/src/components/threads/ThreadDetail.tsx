@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
-import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes, FaUserMinus, FaUserPlus, FaEllipsisV, FaSearch, FaHistory } from 'react-icons/fa';
-import { fetchWithAuth, handleAuthError } from '../../utils/authUtils';
+import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes, FaUserMinus, FaUserPlus, FaEllipsisV, FaSearch, FaHistory, FaExclamationTriangle, FaArrowsAlt, FaCompass } from 'react-icons/fa';
+import { BiNetworkChart } from 'react-icons/bi';
+import { fetchWithAuth, handleAuthError, canEditThread } from '../../utils/authUtils';
 import { addToRecentThreads } from '../../utils/recentThreadsUtils';
 import Tag from '../tags/Tag';
 import GraphVisualization from '../graph/GraphVisualization';
@@ -39,6 +40,8 @@ interface Thread {
   downvoteCount: number;
   createdAt: string;
   updatedAt: string;
+  active: boolean;
+  deactivatedByRole: string | null;
   followerIds?: number[];
 }
 
@@ -94,6 +97,18 @@ const ThreadDetail = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   
+  // Graph interaction mode state
+  const [interactionMode, setInteractionMode] = useState<'move' | 'connect'>('move');
+  
+  // Graph search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GraphNode[]>([]);
+  const [highlightedNodeId, setHighlightedNodeId] = useState<number | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Reference to the graph visualization instance
+  const graphRef = useRef<any>(null);
+  
   // Node creation state
   const [showNodeForm, setShowNodeForm] = useState(false);
   const [nodeLabel, setNodeLabel] = useState('');
@@ -124,8 +139,10 @@ const ThreadDetail = () => {
   const [author, setAuthor] = useState<Author | null>(null);
   const [authorLoading, setAuthorLoading] = useState(false);
   
+  // Thread options menu state
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+  const [canEdit, setCanEdit] = useState(false);
   
   const navigate = useNavigate();
 
@@ -140,6 +157,40 @@ const ThreadDetail = () => {
       }
       .animate-fade-in {
         animation: fadeIn 0.3s ease-out forwards;
+      }
+      
+      /* Tooltip styling */
+      .tooltip {
+        position: relative;
+      }
+      
+      .tooltip:hover::after {
+        content: attr(title);
+        position: absolute;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 100;
+        pointer-events: none;
+      }
+      
+      .tooltip:hover::before {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 5px;
+        border-style: solid;
+        border-color: transparent transparent rgba(0, 0, 0, 0.8) transparent;
+        z-index: 100;
+        pointer-events: none;
       }
     `;
     document.head.appendChild(style);
@@ -859,13 +910,8 @@ const ThreadDetail = () => {
   };
 
   const handleEditThread = () => {
-    // Close the menu
     setShowOptionsMenu(false);
-    
-    // Navigate to edit page or open modal
-    if (thread) {
-      navigate(`/threads/${thread.id}/edit`);
-    }
+    navigate(`/threads/${id}/edit`);
   };
   
   const handleResearchWikidata = () => {
@@ -887,6 +933,99 @@ const ThreadDetail = () => {
       navigate(`/threads/${thread.id}/history`);
     }
   };
+
+  // Check if user can edit the thread
+  useEffect(() => {
+    const checkEditPermission = async () => {
+      if (!id || !currentUser) return;
+      
+      try {
+        const canEditResult = await canEditThread(Number(id));
+        setCanEdit(canEditResult);
+      } catch (error) {
+        console.error('Error checking edit permission:', error);
+      }
+    };
+    
+    if (currentUser && id) {
+      checkEditPermission();
+    }
+  }, [currentUser, id]);
+
+  // Function to search nodes by label
+  const searchNodes = useCallback((query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setHighlightedNodeId(null);
+      return;
+    }
+    
+    const normalizedQuery = query.toLowerCase().trim();
+    const matchingNodes = graphNodes.filter(node => 
+      node.label.toLowerCase().includes(normalizedQuery)
+    );
+    
+    setSearchResults(matchingNodes);
+    
+    // If we have results, highlight the first one
+    if (matchingNodes.length > 0) {
+      const firstMatch = matchingNodes[0];
+      setHighlightedNodeId(firstMatch.id);
+      
+      // Zoom to the node
+      if (graphRef.current && graphRef.current.zoomToNode) {
+        graphRef.current.zoomToNode(firstMatch.id);
+      }
+    } else {
+      setHighlightedNodeId(null);
+    }
+  }, [graphNodes]);
+  
+  // Handle search input changes
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    searchNodes(query);
+  };
+  
+  // Toggle search input visibility
+  const toggleSearch = () => {
+    setIsSearching(!isSearching);
+    if (!isSearching) {
+      // When opening the search, clear previous results
+      setSearchQuery('');
+      setSearchResults([]);
+      setHighlightedNodeId(null);
+    }
+  };
+
+  // Function to center the graph view
+  const centerGraphView = () => {
+    if (graphRef.current && graphRef.current.centerView) {
+      graphRef.current.centerView();
+    }
+  };
+
+  // Add keyboard shortcut for search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F or Cmd+F to open search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && graphNodes.length > 0) {
+        e.preventDefault(); // Prevent browser's default search
+        toggleSearch();
+      }
+      
+      // Escape to close search
+      if (e.key === 'Escape' && isSearching) {
+        toggleSearch();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSearching, toggleSearch, graphNodes.length]);
 
   const renderContent = () => {
     if (loading) {
@@ -924,15 +1063,19 @@ const ThreadDetail = () => {
 
     return (
       <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-sm p-6 order-1">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-semibold text-gray-900 hidden sm:block">Thread Details</h2>
+              <div className="ml-auto"></div>
+            </div>
             <div className="border-b border-gray-100 pb-3 mb-3">
               <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2 mb-2">
                 <h1 className="text-xl md:text-2xl font-semibold text-gray-800 leading-tight">
                   {thread.title}
                 </h1>
                 
-                <div className="flex flex-col items-end">
+                <div className="flex flex-row items-center gap-2 justify-end">
                   {currentUser && (
                     <button
                       onClick={handleFollowToggle}
@@ -941,7 +1084,7 @@ const ThreadDetail = () => {
                         isFollowing
                           ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:shadow'
                           : 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-md'
-                      } whitespace-nowrap mb-2`}
+                      } whitespace-nowrap`}
                     >
                       {followLoading ? (
                         <span className="inline-flex items-center">
@@ -966,7 +1109,7 @@ const ThreadDetail = () => {
                   )}
                   
                   {/* Thread Options Menu */}
-                  <div className="relative mt-1" ref={optionsMenuRef}>
+                  <div className="relative" ref={optionsMenuRef}>
                     <button
                       onClick={() => setShowOptionsMenu(!showOptionsMenu)}
                       className="text-gray-500 hover:text-gray-700 p-1.5 rounded-full hover:bg-gray-100"
@@ -977,13 +1120,15 @@ const ThreadDetail = () => {
                     
                     {showOptionsMenu && (
                       <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200">
-                        <button 
-                          onClick={handleEditThread}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                        >
-                          <FaEdit size={14} className="text-gray-500" />
-                          <span>Edit Thread</span>
-                        </button>
+                        {canEdit && (
+                          <button 
+                            onClick={handleEditThread}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          >
+                            <FaEdit size={14} className="text-gray-500" />
+                            <span>Edit Thread</span>
+                          </button>
+                        )}
                         <button 
                           onClick={handleResearchWikidata}
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
@@ -1014,6 +1159,18 @@ const ThreadDetail = () => {
               )}
             </div>
             
+            {/* Thread inactive notice */}
+            {thread && !thread.active && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center">
+                <FaExclamationTriangle className="text-yellow-500 mr-2" />
+                <span className="text-sm text-yellow-700">
+                  This thread has been deactivated and is not visible to other users.
+                  {thread.deactivatedByRole === 'ADMIN' && 
+                    ' It was deactivated by an admin.'}
+                </span>
+              </div>
+            )}
+            
             {/* Author and Metadata - Improved layout */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
               {/* Author Card */}
@@ -1023,28 +1180,34 @@ const ThreadDetail = () => {
                     <span className="animate-pulse">Loading author...</span>
                   </div>
                 ) : author ? (
-                  <div className="flex items-center">
-                    <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium text-sm mr-2">
-                      {author.username.charAt(0).toUpperCase()}
+                  <Link 
+                    to={`/users/${author.id}`}
+                    className="flex items-center text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    <div className={`w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm mr-2`}>
+                      {author.firstName?.[0]}{author.lastName?.[0]}
                     </div>
                     <div>
-                      <Link to={`/users/${author.id}`} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
-                        @{author.username}
-                      </Link>
-                      <p className="text-xs text-gray-500">Author</p>
+                      <div className="font-medium text-gray-900">
+                        {author.firstName} {author.lastName}
+                        <span className="ml-1 sm:ml-2 text-xs sm:text-sm bg-yellow-100 text-yellow-700 px-1 sm:px-2 py-0.5 rounded-full inline-block mt-1 sm:mt-0 sm:inline">
+                          Thread Author
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500">@{author.username}</div>
                     </div>
-                  </div>
+                  </Link>
                 ) : (
                   <div className="text-sm text-gray-500">Author unavailable</div>
                 )}
               </div>
               
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
                 <div className="flex items-center text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
                   <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
-                  <span>Posted {formatDate(thread.createdAt)}</span>
+                  <span className="whitespace-nowrap">Posted {formatDate(thread.createdAt)}</span>
                 </div>
                 
                 {thread.updatedAt !== thread.createdAt && (
@@ -1069,13 +1232,13 @@ const ThreadDetail = () => {
 
             {/* Thread Content */}
             {thread.description && (
-              <div className="prose max-w-none mb-5 border-l-3 border-gray-100 pl-3 py-1">
+              <div className="prose prose-sm sm:prose max-w-none mb-5 border-l-3 border-gray-100 pl-3 py-1 overflow-hidden break-words">
                 {thread.description}
               </div>
             )}
 
             {/* Voting - Improved */}
-            <div className="flex items-center gap-4 border-t border-gray-100 pt-3">
+            <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-3">
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleVote(true)}
@@ -1124,48 +1287,172 @@ const ThreadDetail = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-xl shadow-sm p-4 order-2">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-xl font-semibold text-gray-900">Thread Visualization</h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {/* Search input */}
+                {isSearching && (
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      className="py-1 pl-8 pr-2 text-sm border border-gray-300 rounded-full w-48 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                      placeholder="Search nodes..."
+                      value={searchQuery}
+                      onChange={handleSearchInputChange}
+                      autoFocus
+                    />
+                    <FaSearch className="absolute left-3 top-2 text-gray-400" size={12} />
+                    {searchQuery && (
+                      <button 
+                        className="absolute right-3 top-2 text-gray-400 hover:text-gray-600"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSearchResults([]);
+                          setHighlightedNodeId(null);
+                        }}
+                      >
+                        <FaTimes size={12} />
+                      </button>
+                    )}
+                    {searchResults.length > 0 && (
+                      <div className="absolute top-9 left-0 w-full bg-white shadow-md rounded-md border border-gray-100 z-10">
+                        <div className="p-2 text-xs text-gray-500 border-b border-gray-100">
+                          Found {searchResults.length} results
+                        </div>
+                        <div className="max-h-40 overflow-y-auto">
+                          {searchResults.map(node => (
+                            <button
+                              key={node.id}
+                              className={`block w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${
+                                highlightedNodeId === node.id ? 'bg-blue-100' : ''
+                              }`}
+                              onClick={() => {
+                                setHighlightedNodeId(node.id);
+                                if (graphRef.current && graphRef.current.zoomToNode) {
+                                  graphRef.current.zoomToNode(node.id);
+                                }
+                              }}
+                            >
+                              {node.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {searchQuery && searchResults.length === 0 && (
+                      <div className="absolute top-9 left-0 w-full bg-white shadow-md rounded-md border border-gray-100 z-10 p-3 text-center text-gray-500 text-sm">
+                        No nodes found matching "{searchQuery}"
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Search button */}
+                <button
+                  onClick={toggleSearch}
+                  className={`tooltip p-2 rounded-full flex items-center justify-center shadow hover:shadow-md transition-all duration-150 transform hover:scale-105 active:scale-95 ${
+                    isSearching ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  title={isSearching ? 'Close Search' : 'Search Nodes'}
+                >
+                  <FaSearch size={16} />
+                </button>
+                
+                {/* Mode toggle button */}
+                <button
+                  onClick={() => setInteractionMode(interactionMode === 'move' ? 'connect' : 'move')}
+                  className={`tooltip p-2 rounded-full flex items-center justify-center shadow hover:shadow-md transition-all duration-150 transform hover:scale-105 active:scale-95 ${
+                    interactionMode === 'move' 
+                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' 
+                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  }`}
+                  title={interactionMode === 'move' ? 'Switch to Connect Mode' : 'Switch to Move Mode'}
+                >
+                  {interactionMode === 'move' ? (
+                    <BiNetworkChart size={18} />
+                  ) : (
+                    <FaArrowsAlt size={16} />
+                  )}
+                </button>
+
+                {/* Center view button */}
+                <button
+                  onClick={centerGraphView}
+                  className="tooltip p-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center justify-center shadow hover:shadow-md transition-all duration-150 transform hover:scale-105 active:scale-95"
+                  title="Center View"
+                >
+                  <FaCompass size={16} />
+                </button>
+                
+                {/* Add node button */}
                 <button 
                   onClick={() => {
                     setShowNodeForm(true);
                   }}
-                  className="bg-blue-500 text-white py-1 px-3 rounded-md flex items-center gap-1 hover:bg-blue-600 transition-colors"
+                  className="tooltip p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 flex items-center justify-center shadow hover:shadow-md transition-all duration-150 transform hover:scale-105 active:scale-95"
+                  title="Add New Node"
                 >
-                  <FaPlus size={12} />
-                  <span>Add Node</span>
+                  <FaPlus size={16} />
                 </button>
               </div>
             </div>
             
+            {/* Graph content */}
             {graphLoading ? (
-              <div className="flex justify-center items-center h-[500px]">
+              <div className="flex justify-center items-center h-[300px] sm:h-[400px] lg:h-[500px]">
                 <p className="text-gray-600">Loading graph data...</p>
               </div>
             ) : graphNodes.length === 0 ? (
-              <div className="flex flex-col justify-center items-center h-[500px]">
+              <div className="flex flex-col justify-center items-center h-[300px] sm:h-[400px] lg:h-[500px]">
                 <p className="text-gray-600 mb-4">No graph data available for this thread.</p>
-                <p className="text-gray-500 mb-4">Use the 'Add Node' button above to create your first node.</p>
+                <p className="text-gray-500 mb-4">Use the <FaPlus className="inline mx-1" size={12} /> button above to create your first node.</p>
               </div>
             ) : (
-              <GraphVisualization 
-                nodes={graphNodes} 
-                edges={graphEdges} 
-                onNodePositionChange={handleNodePositionChange}
-                onNodeDelete={handleDeleteNode}
-                onNodeEdit={handleEditNode}
-                onNodeDetails={handleViewNodeDetails}
-                onConnectionChange={handleConnectionChange}
-                onEdgeEdit={handleEditEdge}
-              />
+              <div className="h-[300px] sm:h-[400px] lg:h-[500px]">
+                <GraphVisualization 
+                  nodes={graphNodes} 
+                  edges={graphEdges} 
+                  onNodePositionChange={handleNodePositionChange}
+                  onNodeDelete={handleDeleteNode}
+                  onNodeEdit={handleEditNode}
+                  onNodeDetails={handleViewNodeDetails}
+                  onConnectionChange={handleConnectionChange}
+                  onEdgeEdit={handleEditEdge}
+                  interactionMode={interactionMode}
+                  highlightedNodeId={highlightedNodeId}
+                  ref={graphRef}
+                />
+                
+                {/* Mode instructions */}
+                <div className={`mt-2 px-3 py-2 text-xs rounded-md ${
+                  interactionMode === 'move' 
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    : 'bg-green-50 text-green-700 border border-green-200'
+                }`}>
+                  {highlightedNodeId ? (
+                    <div className="flex justify-between items-center">
+                      <p><strong>Node Highlighted:</strong> {graphNodes.find(n => n.id === highlightedNodeId)?.label || 'Selected node'}</p>
+                      <button 
+                        className="text-gray-500 hover:text-gray-700"
+                        onClick={() => setHighlightedNodeId(null)}
+                      >
+                        <FaTimes size={10} />
+                      </button>
+                    </div>
+                  ) : interactionMode === 'move' ? (
+                    <p><strong>Move Mode:</strong> Click nodes to view details. Drag to reposition. Double-click to edit.</p>
+                  ) : (
+                    <p><strong>Connect Mode:</strong> Click a source node, then click a target node to create a connection between them.</p>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
         
         {/* Comment Section */}
-        {thread && <CommentSection threadId={thread.id} />}
+        {thread && <CommentSection threadId={thread.id} threadAuthorId={thread.authorId} />}
       </div>
     );
   };
@@ -1389,7 +1676,7 @@ const ThreadDetail = () => {
 
   return (
     <MainLayout>
-      <>
+      <div className="px-2 sm:px-4">
         {renderContent()}
         
         {/* Node Create Modal */}
@@ -1422,7 +1709,7 @@ const ThreadDetail = () => {
             onDelete={handleDeleteEdge}
           />
         )}
-      </>
+      </div>
     </MainLayout>
   );
 };

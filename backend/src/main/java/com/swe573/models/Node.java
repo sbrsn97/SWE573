@@ -7,6 +7,8 @@ import lombok.Setter;
 import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "nodes", indexes = {
@@ -45,9 +47,17 @@ public class Node extends BaseEntity {
     @Column(nullable = false)
     private Integer version = 1;
 
-    @OneToOne(mappedBy = "node", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "node", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @JsonIgnoreProperties({"node", "hibernateLazyInitializer", "handler"})
     private NodeDetails details;
+    
+    @OneToMany(mappedBy = "sourceNode", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"sourceNode", "hibernateLazyInitializer", "handler"})
+    private Set<Edge> outgoingEdges = new HashSet<>();
+    
+    @OneToMany(mappedBy = "targetNode", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"targetNode", "hibernateLazyInitializer", "handler"})
+    private Set<Edge> incomingEdges = new HashSet<>();
 
     @PrePersist
     @PreUpdate
@@ -60,6 +70,24 @@ public class Node extends BaseEntity {
         }
         if (xPosition == null || yPosition == null) {
             throw new IllegalStateException("Node must have position coordinates");
+        }
+    }
+    
+    @Override
+    public void hardDelete() {
+        // Clear the details
+        if (details != null) {
+            details.setNode(null);
+            details = null;
+        }
+        
+        // Clear edges
+        if (outgoingEdges != null) {
+            outgoingEdges.clear();
+        }
+        
+        if (incomingEdges != null) {
+            incomingEdges.clear();
         }
     }
 } 

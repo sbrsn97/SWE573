@@ -43,4 +43,10 @@ public class ThreadDTO {
     
     @Schema(description = "Timestamp when the thread was last updated")
     private LocalDateTime updatedAt;
+    
+    @Schema(description = "Whether the thread is active or soft-deleted")
+    private boolean active = true;
+    
+    @Schema(description = "Role of the user who deactivated the thread (USER or ADMIN)")
+    private String deactivatedByRole;
 } 

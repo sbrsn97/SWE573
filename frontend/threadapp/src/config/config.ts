@@ -21,6 +21,8 @@ export const API_ENDPOINTS = {
         search: `${API_BASE_URL}/threads/search`,
         update: (id: number) => `${API_BASE_URL}/threads/${id}`,
         delete: (id: number) => `${API_BASE_URL}/threads/${id}`,
+        hardDelete: (id: number) => `${API_BASE_URL}/threads/${id}/hard`,
+        reactivate: (id: number) => `${API_BASE_URL}/threads/${id}/reactivate`,
         follow: (id: number) => `${API_BASE_URL}/threads/${id}/follow`,
         unfollow: (id: number) => `${API_BASE_URL}/threads/${id}/unfollow`,
         vote: (id: number) => `${API_BASE_URL}/threads/${id}/vote`,

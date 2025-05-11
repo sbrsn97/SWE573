@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 import { Tag } from '../tags/TagSelector';
 import TagSelector from '../tags/TagSelector';
+import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
 
 interface User {
   id: number;
@@ -49,7 +50,10 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
       navigate('/auth');
       return true;
     }
-    setError(errorData.message || 'An error occurred');
+    
+    // Set the error message - use formatting if it's a profanity error
+    const errorMessage = errorData.message || 'An error occurred';
+    setError(errorMessage);
     return false;
   };
 
@@ -179,11 +183,7 @@ const CreateThreadModal = ({ isOpen, onClose, onThreadCreated }: CreateThreadMod
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
         <h2 className="text-2xl font-semibold mb-4">Create New Thread</h2>
         
-        {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4">
-            {error}
-          </div>
-        )}
+        {error && <ProfanityErrorMessage message={error} />}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">

@@ -12,6 +12,7 @@ import NodeDetails from '../graph/NodeDetails';
 import EdgeDetails from '../graph/EdgeDetails';
 import CommentSection from '../comments/CommentSection';
 import eventBus, { EVENTS } from '../../utils/eventBus';
+import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
 
 interface Tag {
   id: number;
@@ -290,57 +291,30 @@ const ThreadDetail = () => {
     }
   }, [thread, userVote, recalculateVoteCounts]);
 
-  useEffect(() => {
-    const fetchGraphData = async () => {
-      if (!id) return;
-      
-      try {
-        setGraphLoading(true);
-        
-        // Fetch nodes
-        const nodesResponse = await fetchWithAuth(API_ENDPOINTS.graph.nodes.getByThread(Number(id)));
-        if (!nodesResponse.ok) {
-          if (handleAuthError(nodesResponse, navigate)) return;
-          console.error('Failed to load graph nodes');
-          return;
-        }
-        const nodesData = await nodesResponse.json();
-        setGraphNodes(nodesData.data || []);
-        
-        // Fetch edges
-        const edgesResponse = await fetchWithAuth(API_ENDPOINTS.graph.edges.getByThread(Number(id)));
-        if (!edgesResponse.ok) {
-          if (handleAuthError(edgesResponse, navigate)) return;
-          console.error('Failed to load graph edges');
-          return;
-        }
-        const edgesData = await edgesResponse.json();
-        
-        // Ensure all edges have a color property
-        const edgesWithColor = (edgesData.data || []).map((edge: {
-          id: number;
-          sourceNodeId: number;
-          targetNodeId: number;
-          label: string;
-          type: string;
-          weight: number;
-          color?: string;
-          threadId: number;
-        }) => ({
-          ...edge,
-          color: edge.color || '#555555' // Default color if not present
-        }));
-        
-        setGraphEdges(edgesWithColor);
-      } catch (err) {
-        console.error('Error fetching graph data:', err);
-      } finally {
-        setGraphLoading(false);
-      }
-    };
+  // Add fetchGraphData declaration reference at the top, before it's used
+  const fetchGraphData = async () => {
+    if (!id) return;
     
-    fetchGraphData();
-  }, [id, navigate]);
+    setGraphLoading(true);
+    
+    try {
+      const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.getByThread(Number(id)));
+      
+      if (!response.ok) {
+        if (handleAuthError(response, navigate)) return;
+        console.error('Failed to fetch graph data');
+        return;
+      }
+      
+      const data = await response.json();
+      setGraphNodes(data.data.nodes || []);
+      setGraphEdges(data.data.edges || []);
+    } catch (err) {
+      console.error('Error fetching graph data:', err);
+    } finally {
+      setGraphLoading(false);
+    }
+  };
 
   const handleNodePositionChange = async (nodeId: number, x: number, y: number) => {
     try {
@@ -516,60 +490,52 @@ const ThreadDetail = () => {
 
   const handleCreateNode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !nodeLabel) return;
+    if (!id) return;
     
     setIsSubmitting(true);
+    setError(null);
     
     try {
-      // Calculate a good position for the new node
-      // If no nodes exist, place it in the center
-      // If nodes exist, place it near but offset from existing nodes
-      let xPosition = 250;
-      let yPosition = 250;
-      
-      if (graphNodes.length > 0) {
-        // Find the average position of existing nodes and offset slightly
-        const avgX = graphNodes.reduce((sum, node) => sum + node.xPosition, 0) / graphNodes.length;
-        const avgY = graphNodes.reduce((sum, node) => sum + node.yPosition, 0) / graphNodes.length;
-        
-        // Add a random offset (-100 to 100 pixels) to avoid direct overlap
-        xPosition = avgX + (Math.random() * 200 - 100);
-        yPosition = avgY + (Math.random() * 200 - 100);
-        
-        // Ensure positions are positive
-        xPosition = Math.max(50, xPosition);
-        yPosition = Math.max(50, yPosition);
-      }
+      const nodeData = {
+        label: nodeLabel,
+        threadId: Number(id),
+        xPosition: 100,
+        yPosition: 100,
+        color: nodeColor,
+        shape: nodeShape,
+        size: nodeSize
+      };
       
       const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.create(Number(id)), {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Content-Type': 'application/json'
         },
-        body: new URLSearchParams({
-          label: nodeLabel,
-          xPosition: xPosition.toString(),
-          yPosition: yPosition.toString(),
-          color: nodeColor,
-          shape: nodeShape,
-          size: nodeSize.toString()
-        })
+        body: JSON.stringify(nodeData)
       });
       
       if (!response.ok) {
         if (handleAuthError(response, navigate)) return;
-        console.error('Failed to create node');
+        
+        const errorResponse = await response.json();
+        const errorMessage = errorResponse.message || 'Failed to create node';
+        setError(errorMessage);
         return;
       }
       
-      const data = await response.json();
-      
-      // Add the new node to the state
-      setGraphNodes([...graphNodes, data.data]);
+      // Reset form
       setNodeLabel('');
+      setNodeColor('#4287f5');
+      setNodeShape('circle');
+      setNodeSize(50);
       setShowNodeForm(false);
+      
+      // Refetch graph data
+      await fetchGraphData();
+      
     } catch (err) {
       console.error('Error creating node:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsSubmitting(false);
     }
@@ -641,51 +607,48 @@ const ThreadDetail = () => {
     if (!editingNodeId) return;
     
     setIsEditSubmitting(true);
+    setError(null);
     
     try {
+      const nodeData = {
+        id: editingNodeId,
+        label: editNodeLabel,
+        color: editNodeColor,
+        shape: editNodeShape,
+        size: editNodeSize
+      };
+      
       const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.update(editingNodeId), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          label: editNodeLabel,
-          color: editNodeColor,
-          shape: editNodeShape,
-          size: editNodeSize
-        })
+        body: JSON.stringify(nodeData)
       });
       
       if (!response.ok) {
         if (handleAuthError(response, navigate)) return;
-        console.error('Failed to update node');
+        
+        const errorResponse = await response.json();
+        const errorMessage = errorResponse.message || 'Failed to update node';
+        setError(errorMessage);
         return;
       }
       
-      const data = await response.json();
-      
-      // Update the node in the local state
-      setGraphNodes(prev => 
-        prev.map(node => 
-          node.id === editingNodeId 
-            ? { 
-                ...node, 
-                label: editNodeLabel,
-                color: editNodeColor,
-                shape: editNodeShape,
-                size: editNodeSize
-              } 
-            : node
-        )
-      );
-      
-      // Close the modal
+      // Close edit form
       setShowNodeEditModal(false);
-      setEditingNodeId(null);
-      // Reset the flag, we don't want to return to details after saving
-      setReturnToDetailsAfterEdit(false);
+      
+      // Show details again if we were looking at them before
+      if (returnToDetailsAfterEdit && selectedNodeId) {
+        setShowNodeDetails(true);
+      }
+      
+      // Refetch graph data
+      await fetchGraphData();
+      
     } catch (err) {
       console.error('Error updating node:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsEditSubmitting(false);
     }
@@ -856,22 +819,26 @@ const ThreadDetail = () => {
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex justify-center items-center h-[calc(100vh-80px)]">
-          <p className="text-gray-600">Loading...</p>
+        <div className="flex justify-center items-center h-full">
+          <p className="text-gray-500">Loading thread...</p>
         </div>
       );
     }
-
+    
     if (error) {
       return (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg">
-          {error}
+        <div className="container mx-auto px-4 py-8">
+          <ProfanityErrorMessage message={error} />
         </div>
       );
     }
-
+    
     if (!thread) {
-      return null;
+      return (
+        <div className="container mx-auto px-4 py-8">
+          <p className="text-red-600">Thread not found.</p>
+        </div>
+      );
     }
 
     return (
@@ -1029,6 +996,201 @@ const ThreadDetail = () => {
     );
   };
 
+  const renderNodeForm = () => (
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Create New Node</h3>
+          <button 
+            onClick={() => setShowNodeForm(false)}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <FaTimes />
+          </button>
+        </div>
+        
+        {error && <ProfanityErrorMessage message={error} />}
+        
+        <form onSubmit={handleCreateNode}>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Node Label</label>
+            <input
+              type="text"
+              value={nodeLabel}
+              onChange={(e) => setNodeLabel(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter node label"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Node Color</label>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="w-full md:w-1/2">
+                <HexColorPicker 
+                  color={nodeColor} 
+                  onChange={setNodeColor} 
+                  style={{ width: '100%', height: '150px' }}
+                />
+              </div>
+              <div className="flex-1 flex flex-col">
+                <input
+                  type="text"
+                  value={nodeColor}
+                  onChange={(e) => setNodeColor(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="h-12 w-full rounded-md mt-2 border border-gray-200" style={{ backgroundColor: nodeColor }}></div>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Node Shape</label>
+            <select
+              value={nodeShape}
+              onChange={(e) => setNodeShape(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="circle">Circle</option>
+              <option value="rectangle">Rectangle</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Node Size: {nodeSize}
+            </label>
+            <input
+              type="range"
+              min="20"
+              max="100"
+              value={nodeSize}
+              onChange={(e) => setNodeSize(parseInt(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+          </div>
+          
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setShowNodeForm(false)}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              disabled={isSubmitting || !nodeLabel}
+            >
+              {isSubmitting ? 'Creating...' : 'Create Node'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderNodeEditForm = () => (
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Edit Node</h3>
+          <button 
+            onClick={handleCancelNodeEdit}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <FaTimes />
+          </button>
+        </div>
+        
+        {error && <ProfanityErrorMessage message={error} />}
+        
+        <form onSubmit={handleSubmitNodeEdit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Node Label</label>
+            <input
+              type="text"
+              value={editNodeLabel}
+              onChange={(e) => setEditNodeLabel(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Node Color</label>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="w-full md:w-1/2">
+                <HexColorPicker 
+                  color={editNodeColor} 
+                  onChange={setEditNodeColor} 
+                  style={{ width: '100%', height: '150px' }}
+                />
+              </div>
+              <div className="flex-1 flex flex-col">
+                <input
+                  type="text"
+                  value={editNodeColor}
+                  onChange={(e) => setEditNodeColor(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="h-12 w-full rounded-md mt-2 border border-gray-200 shadow-sm" style={{ backgroundColor: editNodeColor }}></div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Node Shape</label>
+            <select
+              value={editNodeShape}
+              onChange={(e) => setEditNodeShape(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="circle">Circle</option>
+              <option value="rectangle">Rectangle</option>
+            </select>
+          </div>
+          
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Node Size: {editNodeSize}
+            </label>
+            <input
+              type="range"
+              min="20"
+              max="100"
+              value={editNodeSize}
+              onChange={(e) => setEditNodeSize(parseInt(e.target.value))}
+              className="w-full accent-blue-500"
+            />
+          </div>
+          
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={handleCancelNodeEdit}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors shadow-sm"
+              disabled={isEditSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm"
+              disabled={isEditSubmitting || !editNodeLabel}
+            >
+              {isEditSubmitting ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
   return (
     <MainLayout>
       {() => (
@@ -1036,188 +1198,10 @@ const ThreadDetail = () => {
           {renderContent()}
           
           {/* Node Create Modal */}
-          {showNodeForm && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-white/95 backdrop-blur-sm rounded-lg p-6 max-w-md w-full shadow-xl">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-semibold">Create New Node</h3>
-                  <button 
-                    onClick={() => setShowNodeForm(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <FaTimes />
-                  </button>
-                </div>
-                
-                <form onSubmit={handleCreateNode} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Node Label</label>
-                    <input
-                      type="text"
-                      value={nodeLabel}
-                      onChange={(e) => setNodeLabel(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter node label"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Node Color</label>
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <div className="w-full md:w-1/2">
-                        <HexColorPicker 
-                          color={nodeColor} 
-                          onChange={setNodeColor} 
-                          style={{ width: '100%', height: '150px' }}
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col">
-                        <input
-                          type="text"
-                          value={nodeColor}
-                          onChange={(e) => setNodeColor(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <div className="h-12 w-full rounded-md mt-2 border border-gray-200" style={{ backgroundColor: nodeColor }}></div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Node Shape</label>
-                    <select
-                      value={nodeShape}
-                      onChange={(e) => setNodeShape(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="circle">Circle</option>
-                      <option value="rectangle">Rectangle</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Node Size: {nodeSize}
-                    </label>
-                    <input
-                      type="range"
-                      min="20"
-                      max="100"
-                      value={nodeSize}
-                      onChange={(e) => setNodeSize(parseInt(e.target.value))}
-                      className="w-full accent-blue-500"
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowNodeForm(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                      disabled={isSubmitting}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                      disabled={isSubmitting || !nodeLabel}
-                    >
-                      {isSubmitting ? 'Creating...' : 'Create Node'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
+          {showNodeForm && renderNodeForm()}
           
           {/* Node Edit Modal */}
-          {showNodeEditModal && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-white/95 backdrop-blur-sm rounded-lg p-6 max-w-md w-full shadow-xl">
-                <h3 className="text-xl font-semibold mb-4">Edit Node</h3>
-                <form onSubmit={handleSubmitNodeEdit}>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Node Label</label>
-                    <input
-                      type="text"
-                      value={editNodeLabel}
-                      onChange={(e) => setEditNodeLabel(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Node Color</label>
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <div className="w-full md:w-1/2">
-                        <HexColorPicker 
-                          color={editNodeColor} 
-                          onChange={setEditNodeColor} 
-                          style={{ width: '100%', height: '150px' }}
-                        />
-                      </div>
-                      <div className="flex-1 flex flex-col">
-                        <input
-                          type="text"
-                          value={editNodeColor}
-                          onChange={(e) => setEditNodeColor(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <div className="h-12 w-full rounded-md mt-2 border border-gray-200 shadow-sm" style={{ backgroundColor: editNodeColor }}></div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Node Shape</label>
-                    <select
-                      value={editNodeShape}
-                      onChange={(e) => setEditNodeShape(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="circle">Circle</option>
-                      <option value="rectangle">Rectangle</option>
-                    </select>
-                  </div>
-                  
-                  <div className="mb-5">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Node Size: {editNodeSize}
-                    </label>
-                    <input
-                      type="range"
-                      min="20"
-                      max="100"
-                      value={editNodeSize}
-                      onChange={(e) => setEditNodeSize(parseInt(e.target.value))}
-                      className="w-full accent-blue-500"
-                    />
-                  </div>
-                  
-                  <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCancelNodeEdit}
-                      className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors shadow-sm"
-                      disabled={isEditSubmitting}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors shadow-sm"
-                      disabled={isEditSubmitting || !editNodeLabel}
-                    >
-                      {isEditSubmitting ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
+          {showNodeEditModal && renderNodeEditForm()}
           
           {/* Node Details Modal */}
           {showNodeDetails && selectedNodeId && (

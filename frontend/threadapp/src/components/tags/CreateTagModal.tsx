@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { API_ENDPOINTS, API_BASE_URL } from '../../config/config';
 import Tag from './Tag';
 import { HexColorPicker } from 'react-colorful';
+import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
 
 // Static initial entities data
 const initialEntities = [
@@ -347,58 +348,71 @@ const CreateTagModal = ({ onClose, onTagCreated }: CreateTagModalProps) => {
   };
 
   const handleSubmit = async (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-    
+    if (e) e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    // Validate required fields
     if (!label.trim()) {
+      setError('Tag name is required');
+      setIsLoading(false);
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('token');
       if (!token) {
+        setError('You must be logged in to create tags');
+        setIsLoading(false);
         return;
       }
-
-      // Prepare payload with proper wikidata entity ID
-      // Use Q35120 as the default entity ID when none is selected
-      const payload = {
-        label: label.trim(),
-        description: description.trim(),
-        colorCodeString: colorCodeString,
-        wikidataEntityId: selectedEntity?.id || "Q35120" // Default to Q35120 when no entity is selected
-      };
 
       const response = await fetch(API_ENDPOINTS.tags.create, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          label: label.trim(),
+          description: description.trim() || null,
+          colorCodeString: colorCodeString,
+          wikidataEntityId: selectedEntity?.id || null
+        })
       });
 
-      const responseText = await response.text();
-
       if (!response.ok) {
+        try {
+          const errorData = await response.json();
+          setError(errorData.message || `Error: ${response.status}`);
+        } catch (jsonError) {
+          setError(`Error: ${response.status}`);
+        }
+        setIsLoading(false);
         return;
       }
 
-      let data;
-      try {
-        data = JSON.parse(responseText) as ApiResponse<Tag>;
-      } catch (parseErr) {
-        return;
-      }
-      
-      if (data.success) {
-        // Call the parent's callback with the newly created tag
-        onTagCreated(data.data);
-        onClose();
-      }
+      const { data } = await response.json();
+      onTagCreated({
+        id: data.id,
+        label: data.label,
+        description: data.description || '',
+        colorCodeString: data.colorCodeString,
+        wikidataEntityId: data.wikidataEntityId || ''
+      });
+
+      // Reset form and close modal
+      setLabel('');
+      setDescription('');
+      setColorCodeString('#3B82F6');
+      setWikidataSearch('');
+      setWikidataResults([]);
+      setSelectedEntity(null);
+      onClose();
     } catch (err) {
-      // Silent error handling
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -440,16 +454,27 @@ const CreateTagModal = ({ onClose, onTagCreated }: CreateTagModalProps) => {
   }, [showColorPicker]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-start pl-72 backdrop-blur-sm bg-black/30 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold">Create New Tag</h2>
-          
-          <form 
-              onSubmit={handleFormSubmit} 
-              className="tag-creation-form"
-              noValidate
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[95vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white z-10 p-4 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Create New Tag</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+              aria-label="Close"
             >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-4">
+          {error && <ProfanityErrorMessage message={error} />}
+          
+          <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
             <div className="mb-4">
               <label className="block text-gray-700 font-medium mb-2">
                 Label <span className="text-red-500">*</span>

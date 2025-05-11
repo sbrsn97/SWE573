@@ -4,6 +4,7 @@ import com.swe573.dto.TagDTO;
 import com.swe573.models.Tag;
 import com.swe573.repositories.TagRepository;
 import com.swe573.services.TagService;
+import com.swe573.services.NlpService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,12 +17,20 @@ public class TagServiceImpl implements TagService {
 
     @Autowired
     private TagRepository tagRepository;
+    
+    @Autowired
+    private NlpService nlpService;
 
     @Override
     @Transactional
     public Tag createTag(TagDTO tagDTO) {
         if (tagRepository.existsByLabel(tagDTO.getLabel())) {
             throw new IllegalArgumentException("Tag with this label already exists");
+        }
+
+        // Check for profanity in tag label and description
+        if (checkForProfanityInTag(tagDTO)) {
+            throw new IllegalArgumentException("Tag contains inappropriate language and cannot be created.");
         }
 
         // We're removing Wikidata entity ID uniqueness validation to allow creating tags with the same or null Wikidata ID
@@ -75,6 +84,11 @@ public class TagServiceImpl implements TagService {
             tagRepository.existsByLabel(tagDTO.getLabel())) {
             throw new IllegalArgumentException("Tag with this label already exists");
         }
+        
+        // Check for profanity in updated tag label and description
+        if (checkForProfanityInTag(tagDTO)) {
+            throw new IllegalArgumentException("Tag contains inappropriate language and cannot be updated.");
+        }
 
         // We're removing Wikidata entity ID uniqueness validation to be consistent with the create method
         // This allows tags to be updated with the same Wikidata entity ID
@@ -103,5 +117,10 @@ public class TagServiceImpl implements TagService {
     @Override
     public boolean existsByWikidataEntityId(String wikidataEntityId) {
         return tagRepository.existsByWikidataEntityId(wikidataEntityId);
+    }
+    
+    private boolean checkForProfanityInTag(TagDTO tagDTO) {
+        return nlpService.containsProfanity(tagDTO.getLabel()) || 
+               (tagDTO.getDescription() != null && nlpService.containsProfanity(tagDTO.getDescription()));
     }
 } 

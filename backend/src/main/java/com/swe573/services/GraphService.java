@@ -21,10 +21,16 @@ public class GraphService {
     private final NodeRepository nodeRepository;
     private final EdgeRepository edgeRepository;
     private final ThreadRepository threadRepository;
+    private final NlpService nlpService;
 
     // Node Operations
     @Transactional
     public Node createNode(Long threadId, String label, Double xPosition, Double yPosition, String color, String shape, Integer size) {
+        // Check for profanity in node label
+        if (nlpService.containsProfanity(label)) {
+            throw new IllegalArgumentException("Node label contains inappropriate language and cannot be created.");
+        }
+        
         Thread thread = threadRepository.findById(threadId)
                 .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
 
@@ -47,6 +53,12 @@ public class GraphService {
 
         List<Node> createdNodes = new ArrayList<>();
         for (BatchNodeDTO nodeDTO : nodes) {
+            // Check for profanity in node label and description
+            if (nlpService.containsProfanity(nodeDTO.getLabel()) || 
+                (nodeDTO.getDescription() != null && nlpService.containsProfanity(nodeDTO.getDescription()))) {
+                throw new IllegalArgumentException("Node contains inappropriate language and cannot be created.");
+            }
+            
             Node node = new Node();
             node.setLabel(nodeDTO.getLabel());
             node.setThread(thread);
@@ -72,24 +84,25 @@ public class GraphService {
 
     @Transactional
     public Node updateNode(Long nodeId, NodeUpdateDTO updateDTO) {
-        // Fetch the node with normal JPA find
+        // Check for profanity in updated node label and description
+        if ((updateDTO.getLabel() != null && nlpService.containsProfanity(updateDTO.getLabel())) || 
+            (updateDTO.getDescription() != null && nlpService.containsProfanity(updateDTO.getDescription()))) {
+            throw new IllegalArgumentException("Node contains inappropriate language and cannot be updated.");
+        }
+        
         Node node = nodeRepository.findById(nodeId)
                 .orElseThrow(() -> new EntityNotFoundException("Node not found"));
 
-        // Update basic node properties
+        // Update node fields
         if (updateDTO.getLabel() != null) {
             node.setLabel(updateDTO.getLabel());
         }
-        
-        // Handle position updates explicitly - this is the part we're focusing on
         if (updateDTO.getXPosition() != null) {
             node.setXPosition(updateDTO.getXPosition());
         }
         if (updateDTO.getYPosition() != null) {
             node.setYPosition(updateDTO.getYPosition());
         }
-        
-        // Update other properties
         if (updateDTO.getColor() != null) {
             node.setColor(updateDTO.getColor());
         }
@@ -100,24 +113,24 @@ public class GraphService {
             node.setSize(updateDTO.getSize());
         }
 
-        // Only update node details if details-specific properties are provided
+        // Handle node details
         if (updateDTO.getWikidataEntityId() != null || updateDTO.getDescription() != null) {
             // Update node details if they exist or create if needed
-        if (node.getDetails() == null) {
-            NodeDetails details = new NodeDetails();
-            details.setNode(node);
+            if (node.getDetails() == null) {
+                NodeDetails details = new NodeDetails();
+                details.setNode(node);
                 details.setWikidataEntityId(updateDTO.getWikidataEntityId() != null ? 
                     updateDTO.getWikidataEntityId() : "default");
                 details.setLabel(node.getLabel());
-            node.setDetails(details);
-        }
+                node.setDetails(details);
+            }
 
-        // Update node details properties
-        if (updateDTO.getWikidataEntityId() != null) {
-            node.getDetails().setWikidataEntityId(updateDTO.getWikidataEntityId());
-        }
-        if (updateDTO.getDescription() != null) {
-            node.getDetails().setDescription(updateDTO.getDescription());
+            // Update node details properties
+            if (updateDTO.getWikidataEntityId() != null) {
+                node.getDetails().setWikidataEntityId(updateDTO.getWikidataEntityId());
+            }
+            if (updateDTO.getDescription() != null) {
+                node.getDetails().setDescription(updateDTO.getDescription());
             }
         }
 
@@ -167,6 +180,11 @@ public class GraphService {
     // Edge Operations
     @Transactional
     public Edge createEdge(Long threadId, Long sourceNodeId, Long targetNodeId, String label, String type, Integer weight, String color, String wikidataPropertyId) {
+        // Check for profanity in edge label
+        if (label != null && nlpService.containsProfanity(label)) {
+            throw new IllegalArgumentException("Edge label contains inappropriate language and cannot be created.");
+        }
+        
         Thread thread = threadRepository.findById(threadId)
                 .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
 
@@ -206,6 +224,11 @@ public class GraphService {
 
         List<Edge> createdEdges = new ArrayList<>();
         for (BatchEdgeDTO edgeDTO : edges) {
+            // Check for profanity in edge label
+            if (edgeDTO.getLabel() != null && nlpService.containsProfanity(edgeDTO.getLabel())) {
+                throw new IllegalArgumentException("Edge contains inappropriate language and cannot be created.");
+            }
+            
             Node sourceNode = nodeRepository.findById(edgeDTO.getSourceNodeId())
                     .orElseThrow(() -> new EntityNotFoundException("Source node not found"));
 
@@ -239,12 +262,13 @@ public class GraphService {
 
     @Transactional
     public Edge updateEdge(Long edgeId, EdgeUpdateDTO updateDTO) {
-        // Use the new repository method to eagerly load the edge with its nodes and threads
-        Edge edge = edgeRepository.findByIdWithNodesAndThreads(edgeId)
+        // Check for profanity in updated edge label
+        if (updateDTO.getLabel() != null && nlpService.containsProfanity(updateDTO.getLabel())) {
+            throw new IllegalArgumentException("Edge contains inappropriate language and cannot be updated.");
+        }
+        
+        Edge edge = edgeRepository.findById(edgeId)
                 .orElseThrow(() -> new EntityNotFoundException("Edge not found"));
-
-        // The source and target nodes with their threads are now eagerly loaded,
-        // so the validation in the @PreUpdate method should work correctly
 
         if (updateDTO.getLabel() != null) {
             edge.setLabel(updateDTO.getLabel());

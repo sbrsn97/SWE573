@@ -17,6 +17,11 @@ public class StanfordNlpServiceImpl implements NlpService {
     private final StanfordCoreNLP pipeline;
     private final Set<String> stopWords;
     private static final int MAX_TEXT_LENGTH = 10000; // Maximum text length to process
+    private Set<String> profanityWords;
+    private static final String ENGLISH_PROFANITY_FILE = "profanity/english_profanity.txt";
+    private static final String TURKISH_PROFANITY_FILE = "profanity/turkish_profanity.txt";
+    private static final String ENCRYPTION_KEY = "SWE573ProfanityFilterSecretKey123";
+    private static final String FILE_WARNING = "#this file is full of disgusting words. decrypt at your own risk";
 
     public StanfordNlpServiceImpl() {
         Properties props = new Properties();
@@ -35,6 +40,9 @@ public class StanfordNlpServiceImpl implements NlpService {
         
         pipeline = new StanfordCoreNLP(props);
         stopWords = getStopWords();
+        
+        // Initialize profanity words set
+        profanityWords = loadProfanityWords();
     }
 
     @Override
@@ -253,6 +261,390 @@ public class StanfordNlpServiceImpl implements NlpService {
             "over", "think", "also", "back", "after", "use", "two", "how", "our",
             "work", "first", "well", "way", "even", "new", "want", "because", "any",
             "these", "give", "day", "most", "us"
+        ));
+    }
+    
+    private Set<String> getProfanityWords() {
+        return profanityWords;
+    }
+    
+    @Override
+    @Cacheable(value = "profanityCheck", key = "#text")
+    public boolean containsProfanity(String text) {
+        if (!StringUtils.hasText(text)) {
+            return false;
+        }
+        
+        // Trim and convert to lowercase
+        String normalizedText = text.toLowerCase().trim();
+        
+        // Get the profanity list
+        Set<String> profanityWordsList;
+        synchronized (profanityWords) {
+            profanityWordsList = new HashSet<>(profanityWords);
+        }
+        
+        // Simple word-based check
+        String[] words = normalizedText.split("\\s+");
+        for (String word : words) {
+            // Remove common punctuation
+            word = word.replaceAll("[.,!?;:\\-\\(\\)\\[\\]{}'\"]", "");
+            
+            // Check for exact matches
+            if (profanityWordsList.contains(word)) {
+                return true;
+            }
+            
+            // Check for obfuscated words (e.g., "f*ck", "s**t")
+            for (String profanity : profanityWordsList) {
+                if (word.length() >= 2 && 
+                    word.charAt(0) == profanity.charAt(0) && 
+                    word.charAt(word.length() - 1) == profanity.charAt(profanity.length() - 1)) {
+                    
+                    // Check if the word has wildcards or special characters in the middle
+                    String middle = word.substring(1, word.length() - 1);
+                    if (middle.matches("[\\*$#@\\-\\.]+") && 
+                        middle.length() == profanity.length() - 2) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // Additional check for combined words or words without spaces
+        for (String profanity : profanityWordsList) {
+            // Use word boundary to catch standalone occurrences
+            String regex = "\\b" + profanity + "\\b";
+            if (normalizedText.matches(".*" + regex + ".*")) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Loads profanity words from both English and Turkish files
+     * Creates resource directories and files if they don't exist
+     * @return Combined set of profanity words
+     */
+    private Set<String> loadProfanityWords() {
+        Set<String> words = new HashSet<>();
+        
+        try {
+            // Create resource directories if they don't exist
+            createResourceDirectoriesIfNeeded();
+            
+            // Try to load from English file
+            try {
+                words.addAll(loadWordsFromFile(ENGLISH_PROFANITY_FILE));
+            } catch (Exception e) {
+                System.out.println("Could not load English profanity file. Using default list: " + e.getMessage());
+                // Add default English profanity words if file can't be loaded
+                words.addAll(getDefaultEnglishProfanityWords());
+                // Try to create the file with default words for future use
+                createProfanityFile(ENGLISH_PROFANITY_FILE, getDefaultEnglishProfanityWords());
+            }
+            
+            // Try to load from Turkish file
+            try {
+                words.addAll(loadWordsFromFile(TURKISH_PROFANITY_FILE));
+            } catch (Exception e) {
+                System.out.println("Could not load Turkish profanity file. Using default list: " + e.getMessage());
+                // Add default Turkish profanity words if file can't be loaded
+                words.addAll(getDefaultTurkishProfanityWords());
+                // Try to create the file with default words for future use
+                createProfanityFile(TURKISH_PROFANITY_FILE, getDefaultTurkishProfanityWords());
+            }
+        } catch (Exception e) {
+            System.out.println("Error loading profanity files: " + e.getMessage());
+            e.printStackTrace();
+            // Fallback to hardcoded lists
+            words.addAll(getDefaultEnglishProfanityWords());
+            words.addAll(getDefaultTurkishProfanityWords());
+        }
+        
+        return words;
+    }
+
+    /**
+     * Creates resource directories for profanity files if they don't exist
+     */
+    private void createResourceDirectoriesIfNeeded() {
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get("profanity");
+            if (!java.nio.file.Files.exists(path)) {
+                java.nio.file.Files.createDirectories(path);
+                System.out.println("Created profanity directory");
+            }
+        } catch (Exception e) {
+            System.out.println("Failed to create profanity directory: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads words from a file, one word per line
+     * @param filename The path to the file
+     * @return Set of words from the file
+     */
+    private Set<String> loadWordsFromFile(String filename) throws Exception {
+        Set<String> words = new HashSet<>();
+        java.nio.file.Path path = java.nio.file.Paths.get(filename);
+        
+        if (java.nio.file.Files.exists(path)) {
+            // Read encrypted content
+            byte[] encryptedContent = java.nio.file.Files.readAllBytes(path);
+            
+            // Skip the first line if it's a warning comment
+            List<String> lines = new ArrayList<>();
+            try {
+                // Try to decrypt the file
+                String content = decryptContent(encryptedContent);
+                lines = Arrays.asList(content.split("\\n"));
+                
+                // If the first line is the warning comment, skip it
+                if (lines.size() > 0 && lines.get(0).startsWith("#")) {
+                    lines = lines.subList(1, lines.size());
+                }
+            } catch (Exception e) {
+                // If decryption fails, try to read as plain text (for backward compatibility)
+                lines = java.nio.file.Files.readAllLines(path);
+                if (lines.size() > 0 && lines.get(0).startsWith("#")) {
+                    lines = lines.subList(1, lines.size());
+                }
+            }
+            
+            for (String line : lines) {
+                String trimmed = line.trim().toLowerCase();
+                if (!trimmed.isEmpty() && !trimmed.startsWith("#")) {
+                    words.add(trimmed);
+                }
+            }
+            System.out.println("Loaded " + words.size() + " words from " + filename);
+        } else {
+            throw new java.io.FileNotFoundException("Profanity file not found: " + filename);
+        }
+        
+        return words;
+    }
+
+    /**
+     * Creates a profanity file with the given words
+     * @param filename The path to create
+     * @param words The words to write to the file
+     */
+    private void createProfanityFile(String filename, Set<String> words) {
+        try {
+            java.nio.file.Path path = java.nio.file.Paths.get(filename);
+            
+            // Create content with warning comment
+            StringBuilder content = new StringBuilder();
+            content.append(FILE_WARNING).append("\n");
+            
+            // Add each word on a new line
+            for (String word : words) {
+                content.append(word).append("\n");
+            }
+            
+            // Encrypt the content
+            byte[] encryptedContent = encryptContent(content.toString());
+            
+            // Write the encrypted content to the file
+            java.nio.file.Files.write(path, encryptedContent);
+            
+            System.out.println("Created encrypted profanity file: " + filename);
+        } catch (Exception e) {
+            System.out.println("Failed to create profanity file: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Encrypts a string using AES encryption
+     * @param content The string to encrypt
+     * @return Encrypted bytes
+     */
+    private byte[] encryptContent(String content) throws Exception {
+        try {
+            javax.crypto.Cipher cipher = getEncryptionCipher(javax.crypto.Cipher.ENCRYPT_MODE);
+            return cipher.doFinal(content.getBytes());
+        } catch (Exception e) {
+            System.out.println("Encryption error: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Decrypts bytes to a string using AES decryption
+     * @param encryptedContent The bytes to decrypt
+     * @return Decrypted string
+     */
+    private String decryptContent(byte[] encryptedContent) throws Exception {
+        try {
+            javax.crypto.Cipher cipher = getEncryptionCipher(javax.crypto.Cipher.DECRYPT_MODE);
+            byte[] decryptedBytes = cipher.doFinal(encryptedContent);
+            return new String(decryptedBytes);
+        } catch (Exception e) {
+            System.out.println("Decryption error: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Creates an encryption cipher for the given mode
+     * @param mode The cipher mode (encrypt or decrypt)
+     * @return The configured cipher
+     */
+    private javax.crypto.Cipher getEncryptionCipher(int mode) throws Exception {
+        // Convert the key string to a fixed-length key
+        java.security.MessageDigest sha = java.security.MessageDigest.getInstance("SHA-256");
+        byte[] keyBytes = sha.digest(ENCRYPTION_KEY.getBytes());
+        keyBytes = Arrays.copyOf(keyBytes, 16); // Use first 128 bits for AES
+        
+        javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(keyBytes, "AES");
+        javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES");
+        cipher.init(mode, secretKey);
+        
+        return cipher;
+    }
+
+    /**
+     * Adds a new profanity word to both memory and files
+     * @param word The word to add
+     * @param language The language ("en" for English, "tr" for Turkish)
+     * @return True if added successfully, false otherwise
+     */
+    public boolean addProfanityWord(String word, String language) {
+        if (word == null || word.trim().isEmpty()) {
+            return false;
+        }
+        
+        word = word.trim().toLowerCase();
+        
+        // Add to memory
+        synchronized (profanityWords) {
+            profanityWords.add(word);
+        }
+        
+        // Add to appropriate file
+        try {
+            String file = "tr".equalsIgnoreCase(language) ? TURKISH_PROFANITY_FILE : ENGLISH_PROFANITY_FILE;
+            java.nio.file.Path path = java.nio.file.Paths.get(file);
+            
+            if (!java.nio.file.Files.exists(path)) {
+                createResourceDirectoriesIfNeeded();
+                // Create new file with just the warning and the new word
+                Set<String> initialWords = new HashSet<>();
+                initialWords.add(word);
+                createProfanityFile(file, initialWords);
+                return true;
+            }
+            
+            // Read existing file
+            Set<String> existingWords = loadWordsFromFile(file);
+            existingWords.add(word);
+            
+            // Write updated content
+            createProfanityFile(file, existingWords);
+            
+            return true;
+        } catch (Exception e) {
+            System.out.println("Error adding word to profanity file: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Removes a profanity word from both memory and files
+     * @param word The word to remove
+     * @return True if removed successfully, false otherwise
+     */
+    public boolean removeProfanityWord(String word) {
+        if (word == null || word.trim().isEmpty()) {
+            return false;
+        }
+        
+        word = word.trim().toLowerCase();
+        
+        // Remove from memory
+        synchronized (profanityWords) {
+            profanityWords.remove(word);
+        }
+        
+        // Remove from both files
+        boolean success = true;
+        
+        try {
+            updateProfanityFile(ENGLISH_PROFANITY_FILE, word);
+        } catch (Exception e) {
+            System.out.println("Error removing word from English profanity file: " + e.getMessage());
+            success = false;
+        }
+        
+        try {
+            updateProfanityFile(TURKISH_PROFANITY_FILE, word);
+        } catch (Exception e) {
+            System.out.println("Error removing word from Turkish profanity file: " + e.getMessage());
+            success = false;
+        }
+        
+        return success;
+    }
+
+    /**
+     * Updates a profanity file by removing a word
+     * @param filename The file to update
+     * @param wordToRemove The word to remove
+     */
+    private void updateProfanityFile(String filename, String wordToRemove) throws Exception {
+        java.nio.file.Path path = java.nio.file.Paths.get(filename);
+        
+        if (java.nio.file.Files.exists(path)) {
+            // Load existing words
+            Set<String> words = loadWordsFromFile(filename);
+            
+            // Remove the word
+            words.remove(wordToRemove);
+            
+            // Write the updated content back to the file
+            createProfanityFile(filename, words);
+        }
+    }
+
+    /**
+     * @return Get all currently loaded profanity words
+     */
+    public Set<String> getAllProfanityWords() {
+        synchronized (profanityWords) {
+            return new HashSet<>(profanityWords);
+        }
+    }
+
+    /**
+     * Reload profanity words from files
+     * @return The number of words loaded
+     */
+    public int reloadProfanityWords() {
+        synchronized (profanityWords) {
+            profanityWords = loadProfanityWords();
+            return profanityWords.size();
+        }
+    }
+
+    private Set<String> getDefaultEnglishProfanityWords() {
+        // This is a limited sample list for demonstration purposes.
+        return new HashSet<>(Arrays.asList(
+            "fuck", "shit", "ass", "bitch", "damn", "cunt", "dick",
+            "bastard", "asshole", "piss", "whore", "slut"
+        ));
+    }
+
+    private Set<String> getDefaultTurkishProfanityWords() {
+        // This is a limited sample list for demonstration purposes.
+        return new HashSet<>(Arrays.asList(
+            "siktir", "amına", "göt", "orospu", "piç", "yarak", "amcık",
+            "ibne", "ananı", "sikeyim", "pezevenk", "gavat"
         ));
     }
 } 

@@ -14,6 +14,7 @@ import { FaUserPlus, FaUserMinus, FaPencilAlt, FaTags, FaChevronLeft, FaChevronR
 import Tag from '../tags/Tag';
 import 'primeicons/primeicons.css';
 import ThreadCard from '../threads/ThreadCard';
+import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
 
 interface User {
   id: number;
@@ -271,12 +272,12 @@ const UserProfile = () => {
         if (response.ok) {
           const result = await response.json();
           const userData = extractUserData(result);
-          
+        
           if (!userData) {
             setError('Failed to parse user data');
-            return;
-          }
-          
+          return;
+        }
+        
           setCurrentUser(userData);
           
           // If no ID was provided in URL or ID matches current user, display own profile
@@ -349,7 +350,7 @@ const UserProfile = () => {
         setLoading(false);
       }
     };
-
+    
     const loadProfileData = async () => {
       setLoading(true);
       setError(null);
@@ -405,20 +406,24 @@ const UserProfile = () => {
   };
 
   const handleSave = async () => {
-    if (!editingField || !user || !isOwnProfile) return;
+    if (!editingField || !user) return;
     
     setUpdating(true);
     try {
+      const { name, value } = editingField;
+      
+      // Create a copy of the user without non-API fields
       const updatePayload = {
         ...user,
-        [editingField.name]: editingField.value
+        [name]: value
       };
-
+      
       // Remove non-API fields
       delete updatePayload.initials;
       delete updatePayload.followerIds;
       delete updatePayload.followingIds;
-
+      delete updatePayload.tags;
+      
       const response = await fetchWithAuth(API_ENDPOINTS.users.update(user.id), {
         method: 'PUT',
         headers: {
@@ -426,47 +431,62 @@ const UserProfile = () => {
         },
         body: JSON.stringify(updatePayload)
       });
-
-      if (response.ok) {
-        const result = await response.json();
-        const updatedUser = extractUserData(result);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.message || 'Update failed';
         
-        if (!updatedUser) {
+        // Check if error is profanity-related
+        if (isProfanityError(errorMessage)) {
+          toast.current?.show({
+            severity: 'error',
+            summary: 'Inappropriate Content Detected',
+            detail: formatProfanityError(errorMessage),
+            life: 5000
+          });
+        } else {
           toast.current?.show({
             severity: 'error',
             summary: 'Error',
-            detail: 'Failed to parse updated user data',
+            detail: errorMessage,
             life: 3000
           });
-          return;
         }
         
-        setUser(updatedUser);
-        
-        toast.current?.show({
-          severity: 'success',
-          summary: 'Success',
-          detail: `${editingField.name.charAt(0).toUpperCase() + editingField.name.slice(1)} updated successfully`,
-          life: 3000
-        });
-
-        setEditingField(null);
-      } else {
-        await handleAuthError(response, navigate);
+        if (handleAuthError(response, navigate)) return;
+        return;
+      }
+      
+      const result = await response.json();
+      const updatedUser = extractUserData(result);
+      
+      if (!updatedUser) {
         toast.current?.show({
           severity: 'error',
           summary: 'Error',
-          detail: 'Failed to update profile',
+          detail: 'Failed to parse updated user data',
           life: 3000
         });
+        return;
       }
+      
+      setUser(updatedUser);
+      setEditingField(null);
+      
+      toast.current?.show({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Profile updated successfully',
+        life: 3000
+      });
     } catch (error) {
       console.error('Error updating user:', error);
+      
       toast.current?.show({
         severity: 'error',
         summary: 'Error',
         detail: error instanceof Error ? error.message : 'Failed to update profile',
-        life: 5000
+        life: 3000
       });
     } finally {
       setUpdating(false);
@@ -499,7 +519,7 @@ const UserProfile = () => {
               <div className="flex items-center gap-3">
                 <i className={`${getFieldIcon()} text-blue-500 text-lg`}></i>
                 <div className="text-md font-medium text-gray-700">{label}</div>
-              </div>
+        </div>
               <div className="flex gap-1">
                 <Button 
                   icon="pi pi-check" 
@@ -614,17 +634,17 @@ const UserProfile = () => {
             </div>
             
             {isOwnProfile && (
-              <Button
+            <Button 
                 icon="pi pi-pencil"
                 rounded
                 outlined
                 size="small"
                 onClick={() => setShowTagsDialog(true)}
                 className="p-button-sm"
-              />
-            )}
-          </div>
+            />
+          )}
         </div>
+            </div>
       </div>
     );
   };
@@ -654,7 +674,7 @@ const UserProfile = () => {
               loading={updating}
               disabled={updating}
             />
-          </div>
+            </div>
         }
       >
         <div className="mb-4">
@@ -699,7 +719,7 @@ const UserProfile = () => {
                     />
                   );
                 })}
-              </div>
+            </div>
             </div>
           )}
           
@@ -710,7 +730,7 @@ const UserProfile = () => {
             ) : filteredTags.length === 0 ? (
               <div className="text-center py-4 text-gray-500 text-sm">
                 {availableTags.length === 0 ? "No tags available" : "No tags match your search"}
-              </div>
+            </div>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {filteredTags
@@ -976,7 +996,7 @@ const UserProfile = () => {
             <FaChevronRight />
           </button>
         </nav>
-      </div>
+            </div>
     );
   };
 
@@ -992,8 +1012,8 @@ const UserProfile = () => {
           >
             Reset Filters
           </button>
-        </div>
-        
+            </div>
+            
         <div className="mb-6">
           <h3 className="flex items-center text-sm font-medium text-gray-700 mb-2">
             <FaSort className="mr-2 text-gray-500" />
@@ -1057,8 +1077,8 @@ const UserProfile = () => {
               <span className="text-sm text-gray-700">Least Voted</span>
             </label>
           </div>
-        </div>
-        
+            </div>
+            
         <div className="mb-6">
           <h3 className="flex items-center text-sm font-medium text-gray-700 mb-2">
             <FaCalendarAlt className="mr-2 text-gray-500" />
@@ -1136,8 +1156,8 @@ const UserProfile = () => {
               <span className="text-sm text-gray-700">This Year</span>
             </label>
           </div>
-        </div>
-        
+            </div>
+            
         <div>
           <h3 className="flex items-center text-sm font-medium text-gray-700 mb-2">
             <FaTags className="mr-2 text-gray-500" />
@@ -1150,7 +1170,7 @@ const UserProfile = () => {
               placeholder="Search tags..."
               className="w-full p-2 text-sm"
             />
-          </div>
+              </div>
           
           {threadFilterTags.length > 0 && (
             <div className="mb-3 border-b pb-2">
@@ -1166,13 +1186,13 @@ const UserProfile = () => {
                         tag={tag}
                         onRemove={() => handleThreadTagSelection(tag.id)}
                       />
-                    </div>
+            </div>
                   );
                 })}
               </div>
             </div>
           )}
-          
+            
           <div className="max-h-40 overflow-y-auto mt-2">
             <div className="flex flex-wrap gap-1.5">
               {loadingTags ? (
@@ -1180,7 +1200,7 @@ const UserProfile = () => {
               ) : getFilteredTags().filter(tag => !threadFilterTags.includes(tag.id)).length === 0 ? (
                 <div className="text-center text-gray-500 py-2 text-sm w-full">
                   {getFilteredTags().length === 0 ? "No tags found" : "All matching tags selected"}
-                </div>
+              </div>
               ) : (
                 getFilteredTags()
                   .filter(tag => !threadFilterTags.includes(tag.id))
@@ -1191,7 +1211,7 @@ const UserProfile = () => {
                       className="cursor-pointer hover:opacity-80 transition-opacity"
                     >
                       <Tag tag={tag} />
-                    </div>
+            </div>
                   ))
               )}
             </div>
@@ -1338,18 +1358,18 @@ const UserProfile = () => {
                     <div className="text-xs text-gray-500">Following</div>
                   </div>
                 </div>
-                {user.createdAt && (
+            {user.createdAt && (
                   <div className="bg-gray-50 hover:bg-gray-100 transition-colors rounded-lg px-4 py-2 flex items-center shadow-sm">
                     <i className="pi pi-calendar text-blue-500 mr-2 text-lg"></i>
                     <div>
                       <div className="text-xs text-gray-500">Joined</div>
                       <div className="text-sm text-gray-900">{formatDate(user.createdAt)}</div>
                     </div>
-                  </div>
-                )}
               </div>
-            </div>
+            )}
           </div>
+        </div>
+      </div>
           
           {/* Profile details */}
           <div className="flex flex-col text-sm space-y-3">

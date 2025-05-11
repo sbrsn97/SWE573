@@ -4,6 +4,7 @@ import { FaReply, FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaTi
 import { Comment } from '../../interfaces/Comment';
 import { API_ENDPOINTS } from '../../config/config';
 import { fetchWithAuth, handleAuthError } from '../../utils/authUtils';
+import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
 
 interface CommentSectionProps {
   threadId: number;
@@ -372,97 +373,88 @@ const CommentSection = ({ threadId }: CommentSectionProps) => {
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newComment.trim()) return;
+    if (newComment.trim() === '') {
+      return;
+    }
     
     setSubmitting(true);
     setError(null);
-
-    const createCommentDTO: CreateCommentDTO = {
-      content: newComment,
-      threadId: threadId
-    };
-
+    
     try {
+      const commentData: CreateCommentDTO = {
+        content: newComment,
+        threadId: threadId
+      };
+      
       const response = await fetchWithAuth(API_ENDPOINTS.comments.create, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(createCommentDTO)
+        body: JSON.stringify(commentData)
       });
-
+      
       if (!response.ok) {
         if (handleAuthError(response, navigate)) return;
+        
         const errorData = await response.json();
-        setError(errorData.message || `Error ${response.status}: ${response.statusText}`);
-        setSubmitting(false);
+        const errorMessage = errorData.message || 'Failed to submit comment';
+        setError(errorMessage);
         return;
       }
-
-      // After successful submission, clear the input and refresh comments
+      
+      const result = await response.json();
+      
+      // Fetch updated comments to include the new one
+      await fetchParentComments();
       setNewComment('');
-      fetchParentComments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while submitting comment');
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setSubmitting(false);
     }
   };
-
+  
   const handleSubmitReply = async (e: React.FormEvent, parentId: number) => {
     e.preventDefault();
     
-    if (!replyContent.trim() || !parentId) return;
+    if (replyContent.trim() === '') {
+      return;
+    }
     
     setSubmitting(true);
     setError(null);
-
-    const createCommentDTO: CreateCommentDTO = {
-      content: replyContent,
-      threadId: threadId,
-      parentId: parentId
-    };
-
+    
     try {
+      const replyData: CreateCommentDTO = {
+        content: replyContent,
+        threadId: threadId,
+        parentId: parentId
+      };
+      
       const response = await fetchWithAuth(API_ENDPOINTS.comments.create, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(createCommentDTO)
+        body: JSON.stringify(replyData)
       });
-
+      
       if (!response.ok) {
         if (handleAuthError(response, navigate)) return;
+        
         const errorData = await response.json();
-        setError(errorData.message || `Error ${response.status}: ${response.statusText}`);
-        setSubmitting(false);
+        const errorMessage = errorData.message || 'Failed to submit reply';
+        setError(errorMessage);
         return;
       }
-
-      // Get the new comment from the response
-      const { data } = await response.json();
       
-      // Update the child comments for this parent
-      setChildComments(prev => {
-        const existingChildren = prev[parentId] || [];
-        return {
-          ...prev,
-          [parentId]: [...existingChildren, data]
-        }; 
-      });
-      
-      // Update the child count for this parent
-      setChildCounts(prev => ({
-        ...prev,
-        [parentId]: (prev[parentId] || 0) + 1
-      }));
-
-      // Clear form and reply state
+      // Fetch child comments to include the new reply
+      await fetchChildComments(parentId);
       setReplyContent('');
       setReplyingTo(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while submitting reply');
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setSubmitting(false);
     }
@@ -598,48 +590,43 @@ const CommentSection = ({ threadId }: CommentSectionProps) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-4">Comments</h2>
+    <div className="mt-8">
+      <h3 className="text-xl font-semibold mb-4 flex items-center">
+        <FaComments className="mr-2" /> Comments
+      </h3>
       
-      {/* Comment form */}
-      <form onSubmit={handleSubmitComment} className="mb-6">
-        <div className="mb-3">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Add a comment..."
-            rows={3}
-            required
-          />
-        </div>
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-            disabled={submitting}
-          >
-            {submitting ? 'Submitting...' : 'Post Comment'}
-          </button>
+      {error && <ProfanityErrorMessage message={error} />}
+      
+      {/* Add comment form */}
+      <form onSubmit={handleSubmitComment} className="mb-8">
+        <div className="flex items-start">
+          <div className="mr-4 bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center">
+            <FaUser className="text-gray-500" />
+          </div>
+          <div className="flex-1">
+            <textarea
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+              placeholder="Add a comment..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              disabled={submitting}
+            ></textarea>
+            <div className="mt-2 flex justify-end">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                disabled={submitting || newComment.trim() === ''}
+              >
+                {submitting ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
+          </div>
         </div>
       </form>
-
-      {/* Error display */}
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4">
-          {error}
-        </div>
-      )}
-
-      {/* Comments list */}
-      {loading ? (
-        <div className="flex justify-center items-center py-6">
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      ) : parentComments.length === 0 ? (
-        <div className="text-center py-6 text-gray-500">
-          No comments yet. Be the first to comment!
-        </div>
+      
+      {/* Display comments */}
+      {parentComments.length === 0 ? (
+        <div className="text-center py-6 text-gray-500">No comments yet. Be the first to comment!</div>
       ) : (
         <div className="space-y-6">
           {parentComments.map((comment) => (

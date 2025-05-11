@@ -11,6 +11,7 @@ import com.swe573.repositories.UserRepository;
 import com.swe573.repositories.NodeRepository;
 import com.swe573.services.CommentService;
 import com.swe573.services.NotificationService;
+import com.swe573.services.NlpService;
 import com.swe573.exceptions.ResourceNotFoundException;
 import com.swe573.exceptions.UnauthorizedException;
 import com.swe573.models.enums.NotificationType;
@@ -40,9 +41,17 @@ public class CommentServiceImpl implements CommentService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private NlpService nlpService;
+
     @Override
     @Transactional
     public Comment createComment(CreateCommentDTO createCommentDTO, Long authorId) {
+        // Check for profanity in comment content
+        if (nlpService.containsProfanity(createCommentDTO.getContent())) {
+            throw new IllegalArgumentException("Comment contains inappropriate language and cannot be posted.");
+        }
+        
         User author = userRepository.findById(authorId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             
@@ -136,6 +145,11 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional
     public Comment updateComment(Long id, String newContent) {
+        // Check for profanity in updated comment content
+        if (nlpService.containsProfanity(newContent)) {
+            throw new IllegalArgumentException("Comment contains inappropriate language and cannot be updated.");
+        }
+        
         Comment comment = commentRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Comment not found"));
             

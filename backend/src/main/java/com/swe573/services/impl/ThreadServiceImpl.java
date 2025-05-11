@@ -12,6 +12,7 @@ import com.swe573.repositories.TagRepository;
 import com.swe573.repositories.UserRepository;
 import com.swe573.services.ThreadService;
 import com.swe573.services.VoteService;
+import com.swe573.services.NlpService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -52,9 +53,21 @@ public class ThreadServiceImpl implements ThreadService {
     @Autowired
     private VoteService voteService;
 
+    @Autowired
+    private NlpService nlpService;
+
     @Override
     @Transactional
     public Thread createThread(ThreadDTO threadDTO) {
+        // Check for profanity in title or description
+        boolean hasProfanityInTitle = nlpService.containsProfanity(threadDTO.getTitle());
+        boolean hasProfanityInDesc = threadDTO.getDescription() != null && 
+                                    nlpService.containsProfanity(threadDTO.getDescription());
+        
+        if (hasProfanityInTitle || hasProfanityInDesc) {
+            throw new IllegalArgumentException("Thread contains inappropriate language and cannot be created.");
+        }
+        
         User author = userRepository.findById(threadDTO.getAuthorId())
             .orElseThrow(() -> new EntityNotFoundException("Author not found"));
 
@@ -126,6 +139,15 @@ public class ThreadServiceImpl implements ThreadService {
     @Override
     @Transactional
     public Thread updateThread(Long id, ThreadDTO threadDTO) {
+        // Check for profanity in updated title or description
+        boolean hasProfanityInTitle = nlpService.containsProfanity(threadDTO.getTitle());
+        boolean hasProfanityInDesc = threadDTO.getDescription() != null && 
+                                    nlpService.containsProfanity(threadDTO.getDescription());
+        
+        if (hasProfanityInTitle || hasProfanityInDesc) {
+            throw new IllegalArgumentException("Thread contains inappropriate language and cannot be updated.");
+        }
+        
         Thread thread = threadRepository.findById(id)
             .orElseThrow(() -> new EntityNotFoundException("Thread not found"));
 
@@ -136,6 +158,12 @@ public class ThreadServiceImpl implements ThreadService {
         if (threadDTO.getTags() != null) {
             Set<Tag> tags = new HashSet<>();
             for (TagDTO tagDTO : threadDTO.getTags()) {
+                // Check for profanity in tag label and description
+                if (nlpService.containsProfanity(tagDTO.getLabel()) || 
+                    (tagDTO.getDescription() != null && nlpService.containsProfanity(tagDTO.getDescription()))) {
+                    throw new IllegalArgumentException("Tag contains inappropriate language and cannot be used.");
+                }
+                
                 Tag tag = tagRepository.findByLabel(tagDTO.getLabel())
                     .orElseGet(() -> {
                         Tag newTag = new Tag();

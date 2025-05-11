@@ -13,6 +13,7 @@ import com.swe573.models.enums.Role;
 import com.swe573.repositories.UserRepository;
 import com.swe573.repositories.TagRepository;
 import com.swe573.services.UserService;
+import com.swe573.services.NlpService;
 
 import jakarta.annotation.PostConstruct;
 
@@ -37,6 +38,9 @@ public class UserServiceImpl implements UserService {
     
     @Autowired
     private TagRepository tagRepository;
+    
+    @Autowired
+    private NlpService nlpService;
 
     @Override
     public User save(User user) {
@@ -78,6 +82,12 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public User registerUser(UserRegistrationDTO registrationDTO) {
         validateUniqueConstraints(registrationDTO);
+        
+        // Check for profanity in user registration fields
+        if (checkForProfanityInRegistration(registrationDTO)) {
+            throw new IllegalArgumentException("Registration contains inappropriate language and cannot be processed.");
+        }
+        
         User user = new User();
         updateUserFromRegistrationDTO(user, registrationDTO);
         return userRepository.save(user);
@@ -112,6 +122,12 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public User updateUser(Long id, UserUpdateDTO updateDTO) {
         User existingUser = getUser(id);
+        
+        // Check for profanity in user update fields
+        if (checkForProfanityInUpdate(updateDTO)) {
+            throw new IllegalArgumentException("Profile update contains inappropriate language and cannot be processed.");
+        }
+        
         System.out.println("Updating user with ID: " + id);
         if (updateDTO.getTagIds() != null) {
             System.out.println("Received tag IDs: " + updateDTO.getTagIds());
@@ -243,5 +259,24 @@ public class UserServiceImpl implements UserService {
             user.setTags(tags);
             System.out.println("Updated tags: " + user.getTags());
         }
+    }
+
+    private boolean checkForProfanityInRegistration(UserRegistrationDTO dto) {
+        // Check all text fields for profanity
+        return nlpService.containsProfanity(dto.getUsername()) ||
+               nlpService.containsProfanity(dto.getFirstName()) ||
+               nlpService.containsProfanity(dto.getLastName()) ||
+               (dto.getBio() != null && nlpService.containsProfanity(dto.getBio())) ||
+               (dto.getLocation() != null && nlpService.containsProfanity(dto.getLocation())) ||
+               (dto.getProfession() != null && nlpService.containsProfanity(dto.getProfession()));
+    }
+    
+    private boolean checkForProfanityInUpdate(UserUpdateDTO dto) {
+        // Check all text fields that can be updated for profanity
+        return (dto.getFirstName() != null && nlpService.containsProfanity(dto.getFirstName())) ||
+               (dto.getLastName() != null && nlpService.containsProfanity(dto.getLastName())) ||
+               (dto.getBio() != null && nlpService.containsProfanity(dto.getBio())) ||
+               (dto.getLocation() != null && nlpService.containsProfanity(dto.getLocation())) ||
+               (dto.getProfession() != null && nlpService.containsProfanity(dto.getProfession()));
     }
 } 

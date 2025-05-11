@@ -8,8 +8,10 @@ import com.swe573.exceptions.DuplicateResourceException;
 import com.swe573.exceptions.InvalidCredentialsException;
 import com.swe573.exceptions.ResourceNotFoundException;
 import com.swe573.models.User;
+import com.swe573.models.Tag;
 import com.swe573.models.enums.Role;
 import com.swe573.repositories.UserRepository;
+import com.swe573.repositories.TagRepository;
 import com.swe573.services.UserService;
 
 import jakarta.annotation.PostConstruct;
@@ -24,12 +26,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserRepository userRepository;
+    
+    @Autowired
+    private TagRepository tagRepository;
 
     @Override
     public User save(User user) {
@@ -105,6 +112,12 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public User updateUser(Long id, UserUpdateDTO updateDTO) {
         User existingUser = getUser(id);
+        System.out.println("Updating user with ID: " + id);
+        if (updateDTO.getTagIds() != null) {
+            System.out.println("Received tag IDs: " + updateDTO.getTagIds());
+        } else {
+            System.out.println("No tag IDs received");
+        }
         updateUserFromUpdateDTO(existingUser, updateDTO);
         return userRepository.save(existingUser);
     }
@@ -211,5 +224,24 @@ public class UserServiceImpl implements UserService {
         user.setLocation(dto.getLocation());
         user.setProfession(dto.getProfession());
         user.setNotificationPreferences(dto.getNotificationPreferences());
+        
+        // Update tags if tagIds are provided
+        if (dto.getTagIds() != null) {
+            System.out.println("Updating tags for user: " + user.getUsername());
+            // Clear existing tags
+            System.out.println("Existing tags: " + user.getTags());
+            user.getTags().clear();
+            
+            // Add new tags
+            Set<Tag> tags = new HashSet<>();
+            for (Long tagId : dto.getTagIds()) {
+                tagRepository.findById(tagId).ifPresent(tag -> {
+                    System.out.println("Adding tag: " + tag.getLabel());
+                    tags.add(tag);
+                });
+            }
+            user.setTags(tags);
+            System.out.println("Updated tags: " + user.getTags());
+        }
     }
 } 

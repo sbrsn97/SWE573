@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaHome, FaSearch, FaCog, FaSignOutAlt, FaList } from 'react-icons/fa';
+import { FaHome, FaSearch, FaSignOutAlt, FaList } from 'react-icons/fa';
 import { API_ENDPOINTS } from '../../config/config';
 import SearchResults from './SearchResults';
 
@@ -16,19 +16,14 @@ interface NavbarProps {
 }
 
 const Navbar = ({ user }: NavbarProps) => {
-  const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowSettings(false);
-      }
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSearchResults(false);
       }
@@ -129,35 +124,24 @@ const Navbar = ({ user }: NavbarProps) => {
         )}
       </div>
 
-      <div className="flex-none flex items-center gap-3" ref={menuRef}>
+      <div className="flex-none flex items-center gap-3">
         <span className="text-gray-700 font-medium">{user?.username}</span>
-        <div className="relative">
-          <div
-            className="w-10 h-10 rounded-full cursor-pointer bg-blue-600 text-white flex items-center justify-center font-semibold text-sm border-2 border-blue-600 hover:bg-blue-700 hover:border-blue-700 hover:scale-105 active:scale-95 transition-all duration-200 ease-in-out shadow-md hover:shadow-lg"
-            onClick={() => setShowSettings(!showSettings)}
-          >
-            {getInitials()}
-          </div>
-          
-          {showSettings && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 transform transition-all duration-200 ease-in-out">
-              <Link 
-                to="/profile" 
-                className="flex items-center px-4 py-2 text-gray-800 hover:bg-blue-50 transition-colors duration-200"
-              >
-                <FaCog className="mr-3 text-gray-500" />
-                Profile Settings
-              </Link>
-              <button 
-                onClick={handleLogout} 
-                className="w-full flex items-center px-4 py-2 text-gray-800 hover:bg-red-50 transition-colors duration-200"
-              >
-                <FaSignOutAlt className="mr-3 text-gray-500" />
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
+        
+        <Link 
+          to="/users/me" 
+          className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm border-2 border-blue-400 hover:bg-blue-600 hover:border-blue-500 hover:scale-105 active:scale-95 transition-all duration-200 ease-in-out shadow-md hover:shadow-lg"
+          title="View your profile"
+        >
+          <span className="text-white">{getInitials()}</span>
+        </Link>
+        
+        <button 
+          onClick={handleLogout} 
+          className="flex items-center justify-center p-2 rounded-full text-red-500 hover:bg-red-50 hover:scale-110 active:scale-95 transition-all duration-200 ease-in-out"
+          title="Logout"
+        >
+          <FaSignOutAlt className="text-xl" />
+        </button>
       </div>
     </nav>
   );

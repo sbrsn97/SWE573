@@ -26,7 +26,8 @@ export const API_ENDPOINTS = {
         vote: (id: number) => `${API_BASE_URL}/threads/${id}/vote`,
         voteStatus: (id: number) => `${API_BASE_URL}/votes/thread/${id}/status`,
         preview: `${API_BASE_URL}/threads/preview`,
-        following: `${API_BASE_URL}/threads/following`
+        following: `${API_BASE_URL}/threads/following`,
+        byUser: (userId: number) => `${API_BASE_URL}/threads/user/${userId}`
     },
     comments: {
         create: `${API_BASE_URL}/comments`,

@@ -1,6 +1,16 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaThumbsUp, FaRegClock, FaUserPlus, FaTag } from 'react-icons/fa';
+import { FaThumbsUp, FaRegClock, FaUserPlus, FaTag, FaUser } from 'react-icons/fa';
 import Tag from '../tags/Tag';
+import { API_ENDPOINTS } from '../../config/config';
+import { fetchWithAuth } from '../../utils/authUtils';
+
+interface Author {
+  id: number;
+  firstName: string;
+  lastName: string;
+  username: string;
+}
 
 interface ThreadCardProps {
   thread: {
@@ -22,6 +32,43 @@ interface ThreadCardProps {
 }
 
 const ThreadCard: React.FC<ThreadCardProps> = ({ thread }) => {
+  const [author, setAuthor] = useState<Author | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch author details
+  useEffect(() => {
+    const fetchAuthor = async () => {
+      if (!thread.authorId) return;
+      
+      setLoading(true);
+      try {
+        const response = await fetchWithAuth(`${API_ENDPOINTS.users.all}/${thread.authorId}`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result && result.data) {
+            setAuthor({
+              id: result.data.id,
+              firstName: result.data.firstName,
+              lastName: result.data.lastName,
+              username: result.data.username
+            });
+          }
+        } else {
+          setError('Failed to fetch author');
+        }
+      } catch (err) {
+        console.error('Error fetching author:', err);
+        setError('Error loading author data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAuthor();
+  }, [thread.authorId]);
+
   // Format date to a readable string
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -75,6 +122,22 @@ const ThreadCard: React.FC<ThreadCardProps> = ({ thread }) => {
             <FaRegClock className="mr-1" />
             {formatDate(thread.createdAt)}
           </span>
+          {author ? (
+            <Link to={`/users/${author.id}`} className="flex items-center text-gray-500 hover:text-gray-700">
+              <FaUser className="mr-1 text-xs" />
+              @{author.username}
+            </Link>
+          ) : loading ? (
+            <span className="flex items-center text-gray-400">
+              <FaUser className="mr-1 text-xs" />
+              Loading...
+            </span>
+          ) : (
+            <span className="flex items-center text-gray-400">
+              <FaUser className="mr-1 text-xs" />
+              Unknown
+            </span>
+          )}
         </div>
         <Link 
           to={`/threads/${thread.id}`} 

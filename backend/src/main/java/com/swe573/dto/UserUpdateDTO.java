@@ -2,6 +2,7 @@ package com.swe573.dto;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Set;
 
 import com.swe573.models.enums.NotificationType;
 import jakarta.validation.constraints.Size;
@@ -33,4 +34,7 @@ public class UserUpdateDTO {
     
     @Schema(description = "User's notification preferences")
     private Map<NotificationType, Boolean> notificationPreferences;
+    
+    @Schema(description = "List of tag IDs associated with the user")
+    private Set<Long> tagIds;
 } 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
 import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes, FaUserMinus, FaUserPlus } from 'react-icons/fa';
@@ -19,6 +19,13 @@ interface Tag {
   description: string;
   colorCodeString: string;
   wikidataEntityId: string;
+}
+
+interface Author {
+  id: number;
+  firstName: string;
+  lastName: string;
+  username: string;
 }
 
 interface Thread {
@@ -111,6 +118,10 @@ const ThreadDetail = () => {
   const [showEdgeDetails, setShowEdgeDetails] = useState(false);
   const [selectedEdgeId, setSelectedEdgeId] = useState<number | null>(null);
   
+  // Author state
+  const [author, setAuthor] = useState<Author | null>(null);
+  const [authorLoading, setAuthorLoading] = useState(false);
+  
   const navigate = useNavigate();
 
   // Fetch thread vote status
@@ -193,6 +204,33 @@ const ThreadDetail = () => {
     }
   }, [currentUser, thread]);
 
+  // Add function to fetch author details
+  const fetchAuthor = useCallback(async (authorId: number) => {
+    setAuthorLoading(true);
+    try {
+      const response = await fetchWithAuth(`${API_ENDPOINTS.users.all}/${authorId}`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.data) {
+          setAuthor({
+            id: result.data.id,
+            firstName: result.data.firstName,
+            lastName: result.data.lastName,
+            username: result.data.username
+          });
+        }
+      } else {
+        console.error('Failed to fetch author');
+      }
+    } catch (err) {
+      console.error('Error fetching author:', err);
+    } finally {
+      setAuthorLoading(false);
+    }
+  }, []);
+
+  // Update the useEffect where thread is fetched to also fetch author
   useEffect(() => {
     const fetchThread = async () => {
       try {
@@ -219,6 +257,11 @@ const ThreadDetail = () => {
         const { data } = await response.json();
         setThread(data);
         
+        // Fetch the author if we have author ID
+        if (data.authorId) {
+          fetchAuthor(data.authorId);
+        }
+        
         // Add thread to recently viewed list in local storage
         addToRecentThreads(data.id, data.title);
         
@@ -238,7 +281,7 @@ const ThreadDetail = () => {
     };
 
     fetchThread();
-  }, [id, navigate, fetchThreadVoteStatus]);
+  }, [id, navigate, fetchThreadVoteStatus, fetchAuthor]);
 
   // Ensure vote counts are accurate after vote status is fetched
   useEffect(() => {
@@ -864,6 +907,26 @@ const ThreadDetail = () => {
                     </>
                   )}
                 </button>
+              )}
+            </div>
+
+            {/* Author information */}
+            <div className="flex items-center mb-4 bg-gray-50 p-2 rounded-md">
+              {authorLoading ? (
+                <div className="flex items-center text-gray-500 text-sm">
+                  <span className="animate-pulse">Loading author...</span>
+                </div>
+              ) : author ? (
+                <div className="flex items-center">
+                  <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 text-xs mr-2">
+                    {author.username.charAt(0).toUpperCase()}
+                  </div>
+                  <Link to={`/users/${author.id}`} className="text-sm text-gray-600 hover:text-gray-800">
+                    @{author.username}
+                  </Link>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">Author unavailable</div>
               )}
             </div>
 

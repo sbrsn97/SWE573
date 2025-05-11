@@ -176,7 +176,7 @@ public class CommentServiceTest {
     void findByThreadId_Success() {
         // Arrange
         List<Comment> comments = Arrays.asList(testComment);
-        when(commentRepository.findByThreadId(1L)).thenReturn(comments);
+        when(commentRepository.findByThreadIdOrderByCreatedAt(1L)).thenReturn(comments);
 
         // Act
         List<Comment> result = commentService.findByThreadId(1L);

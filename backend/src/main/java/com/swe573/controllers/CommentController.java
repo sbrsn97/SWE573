@@ -65,6 +65,34 @@ public class CommentController {
             .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(commentDTOs));
     }
+    
+    @Operation(summary = "Get parent comments for thread", description = "Retrieves all top-level comments for a specific thread")
+    @GetMapping("/thread/{threadId}/parents")
+    public ResponseEntity<ApiResponse<List<CommentDTO>>> getThreadParentComments(
+            @Parameter(description = "ID of the thread", required = true) 
+            @PathVariable Long threadId) {
+        List<Comment> comments = commentService.findParentCommentsByThreadId(threadId);
+        List<CommentDTO> commentDTOs = comments.stream()
+            .map(this::convertToDTO)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(commentDTOs));
+    }
+    
+    @Operation(summary = "Get child comments", description = "Retrieves all child comments for a specific parent comment")
+    @GetMapping("/{parentId}/children")
+    public ResponseEntity<ApiResponse<List<CommentDTO>>> getChildComments(
+            @Parameter(description = "ID of the parent comment", required = true) 
+            @PathVariable Long parentId) {
+        // First verify the parent exists
+        commentService.findById(parentId)
+            .orElseThrow(() -> new ResourceNotFoundException("Parent comment not found"));
+            
+        List<Comment> comments = commentService.findChildCommentsByParentId(parentId);
+        List<CommentDTO> commentDTOs = comments.stream()
+            .map(this::convertToDTO)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(commentDTOs));
+    }
 
     @Operation(summary = "Update comment", description = "Updates the content of a comment")
     @PutMapping("/{id}")
@@ -121,6 +149,12 @@ public class CommentController {
         dto.setAuthorId(comment.getAuthor().getId());
         dto.setAuthorUsername(comment.getAuthor().getUsername());
         dto.setThreadId(comment.getThread().getId());
+        
+        // Set parent ID if this is a child comment
+        if (comment.getParent() != null) {
+            dto.setParentId(comment.getParent().getId());
+        }
+        
         dto.setReferencedNodeIds(comment.getReferencedNodes().stream()
             .map(node -> node.getId())
             .collect(Collectors.toSet()));

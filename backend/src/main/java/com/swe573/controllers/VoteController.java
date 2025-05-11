@@ -6,6 +6,7 @@ import com.swe573.models.User;
 import com.swe573.models.Vote;
 import com.swe573.models.enums.VoteType;
 import com.swe573.services.VoteService;
+import com.swe573.services.AuthenticationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -25,6 +26,9 @@ public class VoteController {
 
     @Autowired
     private VoteService voteService;
+    
+    @Autowired
+    private AuthenticationService authenticationService;
 
     @Operation(summary = "Get vote by ID", description = "Retrieves a specific vote by its ID")
     @GetMapping("/{id}")
@@ -40,7 +44,8 @@ public class VoteController {
             @Parameter(description = "ID of the thread to vote on", required = true) @PathVariable Long threadId,
             @Parameter(description = "Whether this is an upvote (true) or downvote (false)", required = true) @RequestParam boolean isUpvote,
             @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
+        User currentUser = authenticationService.getCurrentUser();
+        Long userId = currentUser.getId();
         VoteType voteType = isUpvote ? VoteType.UPVOTE : VoteType.DOWNVOTE;
         
         Vote vote = voteService.createThreadVote(userId, threadId, voteType);
@@ -61,7 +66,8 @@ public class VoteController {
             @Parameter(description = "ID of the comment to vote on", required = true) @PathVariable Long commentId,
             @Parameter(description = "Whether this is an upvote (true) or downvote (false)", required = true) @RequestParam boolean isUpvote,
             @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
+        User currentUser = authenticationService.getCurrentUser();
+        Long userId = currentUser.getId();
         VoteType voteType = isUpvote ? VoteType.UPVOTE : VoteType.DOWNVOTE;
         
         Vote vote = voteService.createCommentVote(userId, commentId, voteType);
@@ -81,7 +87,8 @@ public class VoteController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> removeThreadVote(
             @Parameter(description = "ID of the thread to remove vote from", required = true) @PathVariable Long threadId,
             @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
+        User currentUser = authenticationService.getCurrentUser();
+        Long userId = currentUser.getId();
         
         voteService.deleteVoteByUserAndThread(userId, threadId);
         int voteCount = voteService.getThreadVoteCount(threadId);
@@ -97,7 +104,8 @@ public class VoteController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> removeCommentVote(
             @Parameter(description = "ID of the comment to remove vote from", required = true) @PathVariable Long commentId,
             @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
+        User currentUser = authenticationService.getCurrentUser();
+        Long userId = currentUser.getId();
         
         voteService.deleteVoteByUserAndComment(userId, commentId);
         int voteCount = voteService.getCommentVoteCount(commentId);
@@ -113,7 +121,8 @@ public class VoteController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> getThreadVoteStatus(
             @Parameter(description = "ID of the thread to check vote status", required = true) @PathVariable Long threadId,
             @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
+        User currentUser = authenticationService.getCurrentUser();
+        Long userId = currentUser.getId();
         
         boolean hasVoted = voteService.hasUserVotedOnThread(userId, threadId);
         VoteType voteType = voteService.getUserVoteTypeOnThread(userId, threadId);
@@ -132,7 +141,8 @@ public class VoteController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> getCommentVoteStatus(
             @Parameter(description = "ID of the comment to check vote status", required = true) @PathVariable Long commentId,
             @Parameter(description = "Authentication object containing user details", required = true) Authentication authentication) {
-        Long userId = ((User) authentication.getPrincipal()).getId();
+        User currentUser = authenticationService.getCurrentUser();
+        Long userId = currentUser.getId();
         
         boolean hasVoted = voteService.hasUserVotedOnComment(userId, commentId);
         VoteType voteType = voteService.getUserVoteTypeOnComment(userId, commentId);
@@ -144,6 +154,48 @@ public class VoteController {
         response.put("voteCount", voteCount);
 
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @Operation(summary = "Recalculate thread vote counts", description = "Recalculates vote counts for a thread to correct any inconsistencies")
+    @PostMapping("/thread/{threadId}/recalculate")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> recalculateThreadVoteCounts(
+            @Parameter(description = "ID of the thread to recalculate votes for", required = true) @PathVariable Long threadId) {
+        
+        voteService.recalculateThreadVoteCounts(threadId);
+        int voteCount = voteService.getThreadVoteCount(threadId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("voteCount", voteCount);
+
+        return ResponseEntity.ok(ApiResponse.success("Vote counts recalculated successfully", response));
+    }
+
+    @Operation(summary = "Reset all vote counts", description = "Resets all thread and comment vote counts based on actual votes in the database")
+    @PostMapping("/reset-all-counts")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> resetAllVoteCounts() {
+        // Implementation will reset all thread and comment vote counts
+        int threadCount = voteService.resetAllThreadVoteCounts();
+        int commentCount = voteService.resetAllCommentVoteCounts();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("threadsUpdated", threadCount);
+        response.put("commentsUpdated", commentCount);
+
+        return ResponseEntity.ok(ApiResponse.success("All vote counts reset successfully", response));
+    }
+
+    @Operation(summary = "Zero out all vote counts", description = "Resets all thread and comment vote counts to zero using direct SQL")
+    @PostMapping("/zero-all-counts")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> zeroAllVoteCounts() {
+        // Use the EntityManager to run native SQL queries
+        int threadsZeroed = voteService.zeroOutAllThreadVoteCounts();
+        int commentsZeroed = voteService.zeroOutAllCommentVoteCounts();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("threadsZeroed", threadsZeroed);
+        response.put("commentsZeroed", commentsZeroed);
+
+        return ResponseEntity.ok(ApiResponse.success("All vote counts set to zero", response));
     }
 
     private VoteDTO convertToDTO(Vote vote) {

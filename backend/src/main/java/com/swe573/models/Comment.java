@@ -8,6 +8,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.swe573.models.enums.VoteType;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -17,7 +19,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @Entity
 @Table(name = "comments")
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = {"votes", "thread", "parent", "children"})
 public class Comment extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     @NotBlank
@@ -30,6 +32,13 @@ public class Comment extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "thread_id")
     private Thread thread;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Comment parent;
+    
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Comment> children = new HashSet<>();
 
     @ManyToMany
     @JoinTable(
@@ -40,6 +49,7 @@ public class Comment extends BaseEntity {
     private Set<Node> referencedNodes = new HashSet<>();
 
     @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Set<Vote> votes = new HashSet<>();
 
     // Cached vote counts to avoid counting every time
@@ -71,6 +81,14 @@ public class Comment extends BaseEntity {
     public int getVoteCount() {
         return upvoteCount - downvoteCount;
     }
+    
+    public boolean isParentComment() {
+        return parent == null;
+    }
+    
+    public boolean hasChildren() {
+        return !children.isEmpty();
+    }
 
     public void softDeleteByUser() {
         softDelete(DeactivationRole.USER);
@@ -87,9 +105,10 @@ public class Comment extends BaseEntity {
 
     @Override
     public void hardDelete() {
-        // Clean up associations
+        // Clean up associations - clear votes first to avoid referential integrity issues
         votes.clear();
         referencedNodes.clear();
+        children.clear();
     }
 
     @Override
@@ -99,6 +118,8 @@ public class Comment extends BaseEntity {
                 ", content='" + content + '\'' +
                 ", authorId=" + (author != null ? author.getId() : null) +
                 ", threadId=" + (thread != null ? thread.getId() : null) +
+                ", parentId=" + (parent != null ? parent.getId() : null) +
+                ", childCount=" + children.size() +
                 ", upvoteCount=" + upvoteCount +
                 ", downvoteCount=" + downvoteCount +
                 '}';

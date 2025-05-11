@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.EqualsAndHashCode;
 import com.swe573.models.enums.VoteType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -16,7 +18,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Entity
 @Table(name = "threads")
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = {"votes", "comments", "nodes", "edges", "threadFollowers"})
 public class Thread extends BaseEntity {
     @NotBlank
     private String title;
@@ -62,6 +64,7 @@ public class Thread extends BaseEntity {
 
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"thread", "hibernateLazyInitializer", "handler"})
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Set<Vote> votes = new HashSet<>();
 
     // Cached vote counts to avoid counting every time
@@ -109,7 +112,7 @@ public class Thread extends BaseEntity {
 
     @Override
     public void hardDelete() {
-        // Clean up associations
+        // Clean up associations - clear votes first to avoid referential integrity issues
         votes.clear();
         comments.clear();
         nodes.clear();

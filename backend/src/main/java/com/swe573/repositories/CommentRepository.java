@@ -7,6 +7,8 @@ import java.util.List;
 
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
-    List<Comment> findByThreadId(Long threadId);
-    List<Comment> findByAuthorId(Long authorId);
+    List<Comment> findByThreadIdOrderByCreatedAt(Long threadId);
+    List<Comment> findByThreadIdAndParentIsNullOrderByCreatedAt(Long threadId);
+    List<Comment> findByParentIdOrderByCreatedAt(Long parentId);
+    List<Comment> findByAuthorIdOrderByCreatedAt(Long authorId);
 } 

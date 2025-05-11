@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
@@ -14,6 +15,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 })
 @Getter
 @Setter
+@EqualsAndHashCode(callSuper = true, exclude = {"thread", "details"})
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Node extends BaseEntity {
 

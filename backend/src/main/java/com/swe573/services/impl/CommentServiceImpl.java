@@ -53,6 +53,24 @@ public class CommentServiceImpl implements CommentService {
         comment.setContent(createCommentDTO.getContent());
         comment.setAuthor(author);
         comment.setThread(thread);
+        
+        // Handle parent-child relationship
+        if (createCommentDTO.getParentId() != null) {
+            Comment parentComment = commentRepository.findById(createCommentDTO.getParentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Parent comment not found"));
+                
+            // Ensure parent is from the same thread
+            if (!parentComment.getThread().getId().equals(thread.getId())) {
+                throw new IllegalArgumentException("Parent comment must belong to the same thread");
+            }
+            
+            // Ensure we're not creating a third-level comment
+            if (parentComment.getParent() != null) {
+                throw new IllegalArgumentException("Cannot reply to a child comment");
+            }
+            
+            comment.setParent(parentComment);
+        }
 
         if (createCommentDTO.getReferencedNodeIds() != null && !createCommentDTO.getReferencedNodeIds().isEmpty()) {
             List<Node> nodes = nodeRepository.findAllById(createCommentDTO.getReferencedNodeIds());
@@ -61,12 +79,25 @@ public class CommentServiceImpl implements CommentService {
 
         Comment savedComment = commentRepository.save(comment);
 
-        // Create notification for thread author
-        if (!author.getId().equals(thread.getAuthor().getId())) {
+        // Create notification for thread author if it's a top-level comment
+        if (!author.getId().equals(thread.getAuthor().getId()) && comment.getParent() == null) {
             notificationService.createNotification(
                 thread.getAuthor().getId(),
                 String.format("%s commented on your thread '%s'", author.getUsername(), thread.getTitle()),
                 NotificationType.NEW_COMMENT,
+                savedComment.getId(),
+                "COMMENT",
+                author.getId(),
+                author.getUsername()
+            );
+        }
+        
+        // Create notification for parent comment author if it's a reply
+        if (comment.getParent() != null && !author.getId().equals(comment.getParent().getAuthor().getId())) {
+            notificationService.createNotification(
+                comment.getParent().getAuthor().getId(),
+                String.format("%s replied to your comment", author.getUsername()),
+                NotificationType.COMMENT_REPLY,
                 savedComment.getId(),
                 "COMMENT",
                 author.getId(),
@@ -84,12 +115,22 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public List<Comment> findByThreadId(Long threadId) {
-        return commentRepository.findByThreadId(threadId);
+        return commentRepository.findByThreadIdOrderByCreatedAt(threadId);
+    }
+    
+    @Override
+    public List<Comment> findParentCommentsByThreadId(Long threadId) {
+        return commentRepository.findByThreadIdAndParentIsNullOrderByCreatedAt(threadId);
+    }
+    
+    @Override
+    public List<Comment> findChildCommentsByParentId(Long parentId) {
+        return commentRepository.findByParentIdOrderByCreatedAt(parentId);
     }
 
     @Override
     public List<Comment> findByAuthorId(Long authorId) {
-        return commentRepository.findByAuthorId(authorId);
+        return commentRepository.findByAuthorIdOrderByCreatedAt(authorId);
     }
 
     @Override

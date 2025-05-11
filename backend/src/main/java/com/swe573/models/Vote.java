@@ -15,7 +15,7 @@ import lombok.Setter;
     @UniqueConstraint(columnNames = {"user_id", "thread_id"}),
     @UniqueConstraint(columnNames = {"user_id", "comment_id"})
 })
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = {"thread", "comment"})
 public class Vote extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -39,6 +39,22 @@ public class Vote extends BaseEntity {
         if ((thread == null && comment == null) || (thread != null && comment != null)) {
             throw new IllegalStateException("A vote must be associated with either a thread or a comment, but not both or neither");
         }
+    }
+
+    /**
+     * Checks if this vote is for a thread.
+     * @return true if this vote is for a thread, false if it's for a comment
+     */
+    public boolean isThreadVote() {
+        return thread != null;
+    }
+
+    /**
+     * Checks if this vote is for a comment.
+     * @return true if this vote is for a comment, false if it's for a thread
+     */
+    public boolean isCommentVote() {
+        return comment != null;
     }
 
     @Override

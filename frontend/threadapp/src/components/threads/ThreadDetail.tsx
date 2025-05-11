@@ -9,6 +9,7 @@ import GraphVisualization from '../graph/GraphVisualization';
 import { HexColorPicker } from 'react-colorful';
 import NodeDetails from '../graph/NodeDetails';
 import EdgeDetails from '../graph/EdgeDetails';
+import CommentSection from '../comments/CommentSection';
 
 interface Tag {
   id: number;
@@ -61,12 +62,19 @@ interface ApiResponse<T> {
   code?: string;
 }
 
+interface VoteStatus {
+  hasVoted: boolean;
+  voteType: string | null;
+  voteCount: number;
+}
+
 const ThreadDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [thread, setThread] = useState<Thread | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
+  const [userVote, setUserVote] = useState<'UPVOTE' | 'DOWNVOTE' | null>(null);
+  const [votingInProgress, setVotingInProgress] = useState(false);
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
   const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
   const [graphLoading, setGraphLoading] = useState(true);
@@ -99,6 +107,58 @@ const ThreadDetail = () => {
   
   const navigate = useNavigate();
 
+  // Fetch thread vote status
+  const fetchThreadVoteStatus = useCallback(async () => {
+    if (!id) return;
+
+    try {
+      const response = await fetchWithAuth(API_ENDPOINTS.votes.threadVoteStatus(Number(id)));
+      
+      if (response.ok) {
+        const { data } = await response.json();
+        if (data.hasVoted) {
+          setUserVote(data.voteType as 'UPVOTE' | 'DOWNVOTE');
+        } else {
+          setUserVote(null);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching thread vote status:', err);
+    }
+  }, [id]);
+
+  // Recalculate vote counts if they seem off
+  const recalculateVoteCounts = useCallback(async () => {
+    if (!id || !thread) return;
+    
+    // Only recalculate if there's a potential inconsistency
+    // For example, if a user has voted but the corresponding count is 0
+    if ((userVote === 'UPVOTE' && thread.upvoteCount === 0) || 
+        (userVote === 'DOWNVOTE' && thread.downvoteCount === 0) ||
+        (userVote && thread.upvoteCount > 0 && thread.downvoteCount > 0)) {
+      
+      console.log("Detected potential vote count inconsistency, recalculating...");
+      
+      try {
+        const response = await fetchWithAuth(API_ENDPOINTS.votes.recalculateThreadVotes(Number(id)), {
+          method: 'POST'
+        });
+        
+        if (response.ok) {
+          // Refresh the thread data after recalculation
+          const refreshResponse = await fetchWithAuth(API_ENDPOINTS.threads.get(Number(id)));
+          if (refreshResponse.ok) {
+            const { data } = await refreshResponse.json();
+            setThread(data);
+            console.log("Vote counts corrected:", data.upvoteCount, data.downvoteCount);
+          }
+        }
+      } catch (err) {
+        console.error('Error recalculating vote counts:', err);
+      }
+    }
+  }, [id, thread, userVote]);
+
   useEffect(() => {
     const fetchThread = async () => {
       try {
@@ -124,6 +184,9 @@ const ThreadDetail = () => {
 
         const { data } = await response.json();
         setThread(data);
+        
+        // Fetch vote status after thread is loaded
+        await fetchThreadVoteStatus();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -132,7 +195,14 @@ const ThreadDetail = () => {
     };
 
     fetchThread();
-  }, [id, navigate]);
+  }, [id, navigate, fetchThreadVoteStatus]);
+
+  // Ensure vote counts are accurate after vote status is fetched
+  useEffect(() => {
+    if (thread && userVote) {
+      recalculateVoteCounts();
+    }
+  }, [thread, userVote, recalculateVoteCounts]);
 
   useEffect(() => {
     const fetchGraphData = async () => {
@@ -227,8 +297,102 @@ const ThreadDetail = () => {
   };
 
   const handleVote = async (isUpvote: boolean) => {
-    if (!thread) return;
+    if (!thread || votingInProgress) return;
 
+    setVotingInProgress(true);
+    setError(null);
+
+    try {
+      // If already voted the same way, remove the vote
+      if ((isUpvote && userVote === 'UPVOTE') || (!isUpvote && userVote === 'DOWNVOTE')) {
+        // Remove vote
+        const response = await fetchWithAuth(API_ENDPOINTS.votes.removeThreadVote(thread.id), {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+          if (handleAuthError(response, navigate)) return;
+          console.error('Failed to remove vote');
+          return;
+        }
+        
+        const { data } = await response.json();
+        
+        // Update thread with new vote counts
+        setThread(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            upvoteCount: isUpvote ? Math.max(0, prev.upvoteCount - 1) : prev.upvoteCount,
+            downvoteCount: !isUpvote ? Math.max(0, prev.downvoteCount - 1) : prev.downvoteCount
+          };
+        });
+        
+        setUserVote(null);
+      } else {
+        // Add or change vote - use the vote endpoint from the API
+        try {
+          // First try the votes.threadVote endpoint that handles change votes properly
+          const url = `${API_ENDPOINTS.votes.threadVote(thread.id)}?isUpvote=${isUpvote}`;
+          const response = await fetchWithAuth(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            const { data } = await response.json();
+            
+            // If changing vote type (from upvote to downvote or vice versa)
+            if (userVote) {
+              setThread(prev => {
+                if (!prev) return null;
+                return {
+                  ...prev,
+                  upvoteCount: isUpvote 
+                    ? prev.upvoteCount + 1 
+                    : Math.max(0, prev.upvoteCount - (userVote === 'UPVOTE' ? 1 : 0)),
+                  downvoteCount: !isUpvote 
+                    ? prev.downvoteCount + 1 
+                    : Math.max(0, prev.downvoteCount - (userVote === 'DOWNVOTE' ? 1 : 0))
+                };
+              });
+            } else {
+              // If adding a new vote
+              setThread(prev => {
+                if (!prev) return null;
+                return {
+                  ...prev,
+                  upvoteCount: isUpvote ? prev.upvoteCount + 1 : prev.upvoteCount,
+                  downvoteCount: !isUpvote ? prev.downvoteCount + 1 : prev.downvoteCount
+                };
+              });
+            }
+            
+            setUserVote(isUpvote ? 'UPVOTE' : 'DOWNVOTE');
+          } else {
+            // If that failed, try the legacy endpoint as fallback
+            console.warn("Vote API failed, trying legacy endpoint");
+            await handleLegacyVote(isUpvote);
+          }
+        } catch (err) {
+          console.error("Error with new vote API, trying legacy endpoint:", err);
+          await handleLegacyVote(isUpvote);
+        }
+      }
+    } catch (err) {
+      console.error('Error voting:', err);
+      // Don't set error state here to avoid showing error to user
+    } finally {
+      setVotingInProgress(false);
+    }
+  };
+
+  // Fallback to legacy voting endpoint if the new one fails
+  const handleLegacyVote = async (isUpvote: boolean) => {
+    if (!thread) return;
+    
     try {
       const response = await fetchWithAuth(API_ENDPOINTS.threads.vote(thread.id), {
         method: 'POST',
@@ -237,21 +401,20 @@ const ThreadDetail = () => {
         },
         body: JSON.stringify({ isUpvote })
       });
-
+      
       if (!response.ok) {
         if (handleAuthError(response, navigate)) return;
-        
-        const errorData = await response.json();
-        setError(errorData.message || `Error ${response.status}: ${response.statusText}`);
+        console.error('Failed to vote using legacy endpoint');
         return;
       }
-
-      const { data } = await response.json();
-      setThread(data);
-      setUserVote(isUpvote ? 'up' : 'down');
+      
+      // Refresh the thread data to ensure correct vote counts
+      await fetchThreadVoteStatus();
+      
+      // If legacy vote succeeded, ensure the UI is updated
+      setUserVote(isUpvote ? 'UPVOTE' : 'DOWNVOTE');
     } catch (err) {
-      console.error('Error voting:', err);
-      setError('Failed to vote. Please try again.');
+      console.error('Error with legacy vote:', err);
     }
   };
 
@@ -581,98 +744,105 @@ const ThreadDetail = () => {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-3">
-          {thread.title}
-        </h1>
+      <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-3">
+              {thread.title}
+            </h1>
 
-          <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-          <span>Posted {formatDate(thread.createdAt)}</span>
-          {thread.updatedAt !== thread.createdAt && (
-            <span>(Edited {formatDate(thread.updatedAt)})</span>
-          )}
+            <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+              <span>Posted {formatDate(thread.createdAt)}</span>
+              {thread.updatedAt !== thread.createdAt && (
+                <span>(Edited {formatDate(thread.updatedAt)})</span>
+              )}
+            </div>
+
+            {thread.description && (
+              <div className="prose max-w-none mb-6">
+                {thread.description}
+              </div>
+            )}
+
+            {thread.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-6">
+                {thread.tags.map(tag => (
+                  <Tag key={tag.id} tag={tag} />
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleVote(true)}
+                  className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${
+                    userVote === 'UPVOTE' ? 'text-blue-600' : 'text-gray-600'
+                  }`}
+                  disabled={votingInProgress}
+                >
+                  {userVote === 'UPVOTE' ? <FaThumbsUp size={18} /> : <FaRegThumbsUp size={18} />}
+                </button>
+                <span className="text-gray-600 font-medium">{thread.upvoteCount}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleVote(false)}
+                  className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${
+                    userVote === 'DOWNVOTE' ? 'text-red-600' : 'text-gray-600'
+                  }`}
+                  disabled={votingInProgress}
+                >
+                  {userVote === 'DOWNVOTE' ? <FaThumbsDown size={18} /> : <FaRegThumbsDown size={18} />}
+                </button>
+                <span className="text-gray-600 font-medium">{thread.downvoteCount}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-4">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-xl font-semibold text-gray-900">Thread Visualization</h2>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    setShowNodeForm(true);
+                  }}
+                  className="bg-blue-500 text-white py-1 px-3 rounded-md flex items-center gap-1 hover:bg-blue-600 transition-colors"
+                >
+                  <FaPlus size={12} />
+                  <span>Add Node</span>
+                </button>
+              </div>
+            </div>
+            
+            {graphLoading ? (
+              <div className="flex justify-center items-center h-[500px]">
+                <p className="text-gray-600">Loading graph data...</p>
+              </div>
+            ) : graphNodes.length === 0 ? (
+              <div className="flex flex-col justify-center items-center h-[500px]">
+                <p className="text-gray-600 mb-4">No graph data available for this thread.</p>
+                <p className="text-gray-500 mb-4">Use the 'Add Node' button above to create your first node.</p>
+              </div>
+            ) : (
+              <GraphVisualization 
+                nodes={graphNodes} 
+                edges={graphEdges} 
+                onNodePositionChange={handleNodePositionChange}
+                onNodeDelete={handleDeleteNode}
+                onNodeEdit={handleEditNode}
+                onNodeDetails={handleViewNodeDetails}
+                onConnectionChange={handleConnectionChange}
+                onEdgeEdit={handleEditEdge}
+              />
+            )}
+          </div>
         </div>
-
-        {thread.description && (
-            <div className="prose max-w-none mb-6">
-            {thread.description}
-          </div>
-        )}
-
-        {thread.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-6">
-            {thread.tags.map(tag => (
-              <Tag key={tag.id} tag={tag} />
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleVote(true)}
-              className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${
-                userVote === 'up' ? 'text-blue-600' : 'text-gray-600'
-              }`}
-            >
-                {userVote === 'up' ? <FaThumbsUp size={18} /> : <FaRegThumbsUp size={18} />}
-            </button>
-            <span className="text-gray-600 font-medium">{thread.upvoteCount}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleVote(false)}
-              className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${
-                userVote === 'down' ? 'text-red-600' : 'text-gray-600'
-              }`}
-            >
-                {userVote === 'down' ? <FaThumbsDown size={18} /> : <FaRegThumbsDown size={18} />}
-            </button>
-            <span className="text-gray-600 font-medium">{thread.downvoteCount}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-xl font-semibold text-gray-900">Thread Visualization</h2>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => {
-                  setShowNodeForm(true);
-                }}
-                className="bg-blue-500 text-white py-1 px-3 rounded-md flex items-center gap-1 hover:bg-blue-600 transition-colors"
-              >
-                <FaPlus size={12} />
-                <span>Add Node</span>
-              </button>
-            </div>
-          </div>
-          
-          {graphLoading ? (
-            <div className="flex justify-center items-center h-[500px]">
-              <p className="text-gray-600">Loading graph data...</p>
-            </div>
-          ) : graphNodes.length === 0 ? (
-            <div className="flex flex-col justify-center items-center h-[500px]">
-              <p className="text-gray-600 mb-4">No graph data available for this thread.</p>
-              <p className="text-gray-500 mb-4">Use the 'Add Node' button above to create your first node.</p>
-            </div>
-          ) : (
-            <GraphVisualization 
-              nodes={graphNodes} 
-              edges={graphEdges} 
-              onNodePositionChange={handleNodePositionChange}
-              onNodeDelete={handleDeleteNode}
-              onNodeEdit={handleEditNode}
-              onNodeDetails={handleViewNodeDetails}
-              onConnectionChange={handleConnectionChange}
-              onEdgeEdit={handleEditEdge}
-            />
-          )}
-        </div>
+        
+        {/* Comment Section */}
+        {thread && <CommentSection threadId={thread.id} />}
       </div>
     );
   };

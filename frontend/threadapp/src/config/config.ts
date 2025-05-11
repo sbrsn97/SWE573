@@ -22,7 +22,30 @@ export const API_ENDPOINTS = {
         follow: (id: number) => `${API_BASE_URL}/threads/${id}/follow`,
         unfollow: (id: number) => `${API_BASE_URL}/threads/${id}/unfollow`,
         vote: (id: number) => `${API_BASE_URL}/threads/${id}/vote`,
+        voteStatus: (id: number) => `${API_BASE_URL}/votes/thread/${id}/status`,
         preview: `${API_BASE_URL}/threads/preview`
+    },
+    comments: {
+        create: `${API_BASE_URL}/comments`,
+        getByThread: (threadId: number) => `${API_BASE_URL}/comments/thread/${threadId}`,
+        getParentsByThread: (threadId: number) => `${API_BASE_URL}/comments/thread/${threadId}/parents`,
+        getChildrenByParent: (parentId: number) => `${API_BASE_URL}/comments/${parentId}/children`,
+        get: (id: number) => `${API_BASE_URL}/comments/${id}`,
+        update: (id: number) => `${API_BASE_URL}/comments/${id}`,
+        delete: (id: number) => `${API_BASE_URL}/comments/${id}`,
+        hardDelete: (id: number) => `${API_BASE_URL}/comments/${id}/hard`,
+        reactivate: (id: number) => `${API_BASE_URL}/comments/${id}/reactivate`
+    },
+    votes: {
+        commentVote: (commentId: number) => `${API_BASE_URL}/votes/comment/${commentId}`,
+        commentVoteStatus: (commentId: number) => `${API_BASE_URL}/votes/comment/${commentId}/status`,
+        removeCommentVote: (commentId: number) => `${API_BASE_URL}/votes/comment/${commentId}`,
+        threadVote: (threadId: number) => `${API_BASE_URL}/votes/thread/${threadId}`,
+        threadVoteStatus: (threadId: number) => `${API_BASE_URL}/votes/thread/${threadId}/status`,
+        removeThreadVote: (threadId: number) => `${API_BASE_URL}/votes/thread/${threadId}`,
+        recalculateThreadVotes: (threadId: number) => `${API_BASE_URL}/votes/thread/${threadId}/recalculate`,
+        resetAllVoteCounts: `${API_BASE_URL}/votes/reset-all-counts`,
+        zeroAllVoteCounts: `${API_BASE_URL}/votes/zero-all-counts`
     },
     tags: {
         create: `${API_BASE_URL}/tags`,

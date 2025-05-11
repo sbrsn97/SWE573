@@ -16,4 +16,13 @@ public interface VoteService {
     VoteType getUserVoteTypeOnComment(Long userId, Long commentId);
     int getThreadVoteCount(Long threadId);
     int getCommentVoteCount(Long commentId);
+    void recalculateThreadVoteCounts(Long threadId);
+    
+    // Methods to reset vote counts based on actual votes
+    int resetAllThreadVoteCounts();
+    int resetAllCommentVoteCounts();
+    
+    // Methods to zero out all vote counts
+    int zeroOutAllThreadVoteCounts();
+    int zeroOutAllCommentVoteCounts();
 } 

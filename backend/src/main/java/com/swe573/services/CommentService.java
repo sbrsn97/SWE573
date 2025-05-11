@@ -9,6 +9,8 @@ public interface CommentService {
     Comment createComment(CreateCommentDTO createCommentDTO, Long authorId);
     Optional<Comment> findById(Long id);
     List<Comment> findByThreadId(Long threadId);
+    List<Comment> findParentCommentsByThreadId(Long threadId);
+    List<Comment> findChildCommentsByParentId(Long parentId);
     List<Comment> findByAuthorId(Long authorId);
     Comment updateComment(Long id, String newContent);
     void softDeleteComment(Long id, Long userId);

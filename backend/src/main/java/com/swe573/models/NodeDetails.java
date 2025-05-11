@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
@@ -13,6 +14,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 })
 @Getter
 @Setter
+@EqualsAndHashCode(callSuper = true, exclude = {"node"})
 public class NodeDetails extends BaseEntity {
 
     @OneToOne(fetch = FetchType.LAZY)

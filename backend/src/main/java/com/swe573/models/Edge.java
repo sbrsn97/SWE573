@@ -3,6 +3,7 @@ package com.swe573.models;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.EqualsAndHashCode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
@@ -13,6 +14,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 })
 @Getter
 @Setter
+@EqualsAndHashCode(callSuper = true, exclude = {"sourceNode", "targetNode", "thread"})
 public class Edge extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

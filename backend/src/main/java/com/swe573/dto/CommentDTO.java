@@ -23,6 +23,9 @@ public class CommentDTO {
     @Schema(description = "ID of the thread this comment belongs to")
     private Long threadId;
     
+    @Schema(description = "ID of the parent comment, null for top-level comments")
+    private Long parentId;
+    
     @Schema(description = "IDs of nodes referenced in this comment")
     private Set<Long> referencedNodeIds;
     

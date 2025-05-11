@@ -6,6 +6,7 @@ import AuthLayout from './components/auth/layout/AuthLayout.tsx'
 import { PrimeReactProvider } from 'primereact/api'
 import Tailwind from "primereact/passthrough/tailwind";
 import Profile from './components/profile/Profile.tsx'
+import UserProfile from './components/profile/UserProfile.tsx'
 import Home from './components/home/Home.tsx'
 import ThreadDetail from './components/threads/ThreadDetail.tsx'
 import { setupAuthInterceptor } from './utils/authUtils'
@@ -33,6 +34,11 @@ const App = () => {
       <Route path="/profile" element={
         <AuthRoute>
           <Profile />
+        </AuthRoute>
+      } />
+      <Route path="/users/:id" element={
+        <AuthRoute>
+          <UserProfile />
         </AuthRoute>
       } />
       <Route path="/threads/:id" element={

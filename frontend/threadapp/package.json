@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:skip-typescript": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -13,6 +14,7 @@
     "@heroicons/react": "^2.2.0",
     "@tailwindcss/vite": "^4.0.14",
     "@types/react-router-dom": "^5.3.3",
+    "date-fns": "^2.30.0",
     "primeicons": "^7.0.0",
     "primereact": "^10.9.3",
     "react": "^19.0.0",

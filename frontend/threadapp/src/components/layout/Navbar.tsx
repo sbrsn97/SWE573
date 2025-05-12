@@ -4,6 +4,7 @@ import { FaHome, FaSearch, FaSignOutAlt, FaList, FaShieldAlt, FaChevronDown, FaC
 import { API_ENDPOINTS } from '../../config/config';
 import { clearAllLocalStorage } from '../../utils/authUtils';
 import SearchResults from './SearchResults';
+import NotificationBell from '../notification/NotificationBell';
 
 interface User {
   username: string;
@@ -138,6 +139,8 @@ const Navbar = ({ user }: NavbarProps) => {
             <FaUserShield className="text-white text-xl" />
           </Link>
         )}
+        
+        <NotificationBell />
         
         <span className="text-gray-700 font-medium">{user?.username}</span>
         

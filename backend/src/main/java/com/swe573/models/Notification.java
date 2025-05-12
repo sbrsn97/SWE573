@@ -9,7 +9,17 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @Entity
-@Table(name = "notifications")
+@Table(
+    name = "notifications",
+    indexes = {
+        @Index(name = "idx_notifications_user_id", columnList = "user_id"),
+        @Index(name = "idx_notifications_user_id_is_read", columnList = "user_id, is_read"),
+        @Index(name = "idx_notifications_user_id_type", columnList = "user_id, notification_type"),
+        @Index(name = "idx_notifications_created_at", columnList = "created_at DESC"),
+        @Index(name = "idx_notifications_user_id_reference_type", columnList = "user_id, reference_type"),
+        @Index(name = "idx_notifications_user_id_type_is_read", columnList = "user_id, notification_type, is_read")
+    }
+)
 @EqualsAndHashCode(callSuper = true)
 public class Notification extends BaseEntity {
     

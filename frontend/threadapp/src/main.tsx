@@ -18,6 +18,7 @@ import AdminDashboard from './components/admin/AdminDashboard.tsx'
 import ProfanityManagement from './components/admin/ProfanityManagement.tsx'
 import TagManagement from './components/admin/TagManagement.tsx'
 import CreateThreadPage from './components/threads/CreateThreadPage.tsx'
+import NotificationsPage from './pages/NotificationsPage'
 
 const App = () => {
   const navigate = useNavigate();
@@ -68,6 +69,12 @@ const App = () => {
       <Route path="/threads/:id/edit" element={
         <AuthRoute>
           <ThreadEdit />
+        </AuthRoute>
+      } />
+      
+      <Route path="/notifications" element={
+        <AuthRoute>
+          <NotificationsPage />
         </AuthRoute>
       } />
 

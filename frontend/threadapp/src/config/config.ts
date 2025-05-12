@@ -166,5 +166,24 @@ export const API_ENDPOINTS = {
             getGraphAnalysis: (threadId: number) => `${API_BASE_URL}/graph/threads/${threadId}/analysis`,
             getConnectedNodes: (nodeId: number) => `${API_BASE_URL}/graph/nodes/${nodeId}/connections`
         }
+    },
+    notifications: {
+        getUserNotifications: (userId: number) => `${API_BASE_URL}/notifications/user/${userId}`,
+        getPaginatedNotifications: (userId: number, page: number = 0, size: number = 20) => 
+            `${API_BASE_URL}/notifications/user/${userId}/paginated?page=${page}&size=${size}`,
+        getUnreadNotifications: (userId: number) => `${API_BASE_URL}/notifications/user/${userId}/unread`,
+        getUnreadCount: (userId: number) => `${API_BASE_URL}/notifications/user/${userId}/unread/count`,
+        markAsRead: (notificationId: number) => `${API_BASE_URL}/notifications/${notificationId}/read`,
+        markAllAsRead: (userId: number) => `${API_BASE_URL}/notifications/user/${userId}/read-all`,
+        markAsReadByType: (userId: number, type: string) => `${API_BASE_URL}/notifications/user/${userId}/type/${type}/read`,
+        deleteNotification: (notificationId: number) => `${API_BASE_URL}/notifications/${notificationId}`,
+        deleteAllNotifications: (userId: number) => `${API_BASE_URL}/notifications/user/${userId}/all`,
+        getPreferences: (userId: number) => `${API_BASE_URL}/notifications/user/${userId}/preferences`,
+        updatePreference: (preferenceId: number) => `${API_BASE_URL}/notifications/preferences/${preferenceId}`,
+        togglePreference: (preferenceId: number, enabled: boolean) => `${API_BASE_URL}/notifications/preferences/${preferenceId}/toggle?enabled=${enabled}`,
+        enableNotification: (userId: number, type: string) => `${API_BASE_URL}/notifications/user/${userId}/type/${type}/enable`,
+        disableNotification: (userId: number, type: string) => `${API_BASE_URL}/notifications/user/${userId}/type/${type}/disable`,
+        enableSpecificNotification: (userId: number) => `${API_BASE_URL}/notifications/user/${userId}/preferences/enable`,
+        disableSpecificNotification: (userId: number) => `${API_BASE_URL}/notifications/user/${userId}/preferences/disable`
     }
 }; 

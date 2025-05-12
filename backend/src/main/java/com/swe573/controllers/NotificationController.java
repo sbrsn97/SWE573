@@ -7,18 +7,29 @@ import com.swe573.models.Notification;
 import com.swe573.models.NotificationPreference;
 import com.swe573.models.enums.NotificationType;
 import com.swe573.services.NotificationService;
+import com.swe573.services.impl.NotificationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.ArrayList;
 
 @Tag(name = "Notifications", description = "APIs for managing user notifications and preferences")
 @RestController
+@CrossOrigin(origins = "*", methods = {
+    RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, 
+    RequestMethod.DELETE, RequestMethod.OPTIONS, RequestMethod.PATCH
+})
 @RequestMapping("/api/notifications")
 public class NotificationController {
 
@@ -30,6 +41,19 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<List<NotificationDTO>>> getUserNotifications(
             @Parameter(description = "ID of the user", required = true) @PathVariable Long userId) {
         List<Notification> notifications = notificationService.getUserNotifications(userId);
+        List<NotificationDTO> dtos = notifications.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(dtos));
+    }
+
+    @Operation(summary = "Get paginated user notifications", description = "Retrieves notifications for a specific user with pagination")
+    @GetMapping("/user/{userId}/paginated")
+    public ResponseEntity<ApiResponse<List<NotificationDTO>>> getPaginatedNotifications(
+            @Parameter(description = "ID of the user", required = true) @PathVariable Long userId,
+            @Parameter(description = "Page number (0-based)", required = false) @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size", required = false) @RequestParam(defaultValue = "20") int size) {
+        List<Notification> notifications = notificationService.getPaginatedNotifications(userId, page, size);
         List<NotificationDTO> dtos = notifications.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -158,17 +182,53 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<Void>> disableNotification(
             @Parameter(description = "ID of the user", required = true) @PathVariable Long userId,
             @Parameter(description = "Type of notification to disable", required = true) @PathVariable NotificationType type) {
-        notificationService.disableNotification(userId, type);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        try {
+            // Log the request for debugging
+            System.out.println("Disabling notification type: " + type + " for user: " + userId);
+            
+            // Call the service with proper error handling
+            notificationService.disableNotification(userId, type);
+            return ResponseEntity.ok(ApiResponse.success(null));
+        } catch (Exception e) {
+            System.err.println("Error disabling notification for user " + userId + ", type " + type + ": " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Failed to disable notification: " + e.getMessage()));
+        }
     }
 
     @Operation(summary = "Update notification preference", description = "Updates a specific notification preference")
-    @PatchMapping("/preferences/{preferenceId}")
+    @PutMapping("/preferences/{preferenceId}")
     public ResponseEntity<ApiResponse<NotificationPreference>> updatePreference(
             @Parameter(description = "ID of the preference to update", required = true) @PathVariable Long preferenceId,
-            @Parameter(description = "Updated preference data", required = true) @RequestBody NotificationPreferenceUpdateDTO updateDTO) {
-        NotificationPreference updatedPreference = notificationService.updatePreference(preferenceId, updateDTO);
-        return ResponseEntity.ok(ApiResponse.success(updatedPreference));
+            @Parameter(description = "Full preference object", required = true) @RequestBody NotificationPreference preference) {
+        try {
+            // Validate the preference
+            if (preference == null) {
+                return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Preference data cannot be null"));
+            }
+            
+            // Log the request data for debugging
+            System.out.println("Updating preference ID: " + preferenceId);
+            
+            // Convert the full preference to an update DTO
+            NotificationPreferenceUpdateDTO updateDTO = new NotificationPreferenceUpdateDTO();
+            updateDTO.setType(preference.getType());
+            updateDTO.setEnabled(preference.isEnabled());
+            updateDTO.setReferenceId(preference.getReferenceId());
+            updateDTO.setReferenceType(preference.getReferenceType());
+            updateDTO.setGlobal(preference.isGlobal());
+            
+            // Call the service with proper error handling
+            NotificationPreference updatedPreference = notificationService.updatePreference(preferenceId, updateDTO);
+            return ResponseEntity.ok(ApiResponse.success(updatedPreference));
+        } catch (Exception e) {
+            System.err.println("Error updating preference " + preferenceId + ": " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Failed to update preference: " + e.getMessage()));
+        }
     }
 
     @Operation(summary = "Get all notification preferences", description = "Retrieves all notification preferences for a user")
@@ -242,6 +302,75 @@ public class NotificationController {
             @Parameter(description = "Type of reference (e.g., THREAD, COMMENT)", required = true) @RequestParam String referenceType) {
         notificationService.disableNotification(userId, type, referenceId, referenceType);
         return ResponseEntity.ok(ApiResponse.success("Notification preference disabled successfully", null));
+    }
+
+    @Operation(summary = "Clean up duplicate notification preferences", description = "Admin endpoint to remove duplicate notification preferences")
+    @PostMapping("/admin/cleanup-duplicates")
+    public ResponseEntity<ApiResponse<Integer>> cleanupDuplicatePreferences() {
+        // Get all preferences
+        List<NotificationPreference> allPreferences = notificationService.getAllPreferences();
+        
+        // Create a map to track unique preferences by user, type, reference ID, and reference type
+        Map<String, List<NotificationPreference>> duplicateMap = new HashMap<>();
+        
+        // Group preferences by their key characteristics
+        for (NotificationPreference pref : allPreferences) {
+            String key = pref.getUser().getId() + "_" + 
+                         pref.getType() + "_" + 
+                         (pref.getReferenceId() != null ? pref.getReferenceId() : "null") + "_" + 
+                         (pref.getReferenceType() != null ? pref.getReferenceType() : "null") + "_" +
+                         (pref.isGlobal() ? "global" : "specific");
+            
+            if (!duplicateMap.containsKey(key)) {
+                duplicateMap.put(key, new ArrayList<>());
+            }
+            duplicateMap.get(key).add(pref);
+        }
+        
+        // Count how many preferences will be deleted
+        int deletedCount = 0;
+        
+        // For each group, keep the newest one and delete the rest
+        for (List<NotificationPreference> duplicates : duplicateMap.values()) {
+            if (duplicates.size() > 1) {
+                // Sort by ID (descending) to keep the newest one
+                duplicates.sort((a, b) -> Long.compare(b.getId(), a.getId()));
+                
+                // Keep the first one (highest ID) and delete the rest
+                for (int i = 1; i < duplicates.size(); i++) {
+                    notificationService.deletePreference(duplicates.get(i).getId());
+                    deletedCount++;
+                }
+            }
+        }
+        
+        return ResponseEntity.ok(ApiResponse.success("Removed " + deletedCount + " duplicate preferences", deletedCount));
+    }
+
+    @Operation(summary = "Toggle notification preference enabled status", description = "Updates only the enabled status of a notification preference using direct SQL")
+    @PutMapping("/preferences/{preferenceId}/toggle")
+    public ResponseEntity<ApiResponse<Boolean>> togglePreferenceStatus(
+            @Parameter(description = "ID of the preference to update", required = true) @PathVariable Long preferenceId,
+            @Parameter(description = "New enabled status", required = true) @RequestParam boolean enabled) {
+        try {
+            // Log the request
+            System.out.println("Toggling preference " + preferenceId + " to " + enabled);
+            
+            // Use the direct SQL update method to bypass JPA entity management
+            boolean success = notificationService.updatePreferenceEnabledStatusDirectly(preferenceId, enabled);
+            
+            if (success) {
+                return ResponseEntity.ok(ApiResponse.success("Preference updated successfully", enabled));
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error("Preference not found or update failed"));
+            }
+        } catch (Exception e) {
+            System.err.println("Error toggling preference " + preferenceId + ": " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Failed to update preference: " + e.getMessage()));
+        }
     }
 
     private NotificationDTO convertToDTO(Notification notification) {

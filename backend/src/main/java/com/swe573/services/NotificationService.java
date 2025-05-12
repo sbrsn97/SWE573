@@ -19,6 +19,9 @@ public interface NotificationService {
     List<Notification> getNotificationsByType(Long userId, NotificationType type);
     List<Notification> getNotificationsByReferenceType(Long userId, String referenceType);
     
+    // Add paginated version for better performance
+    List<Notification> getPaginatedNotifications(Long userId, int page, int size);
+    
     // Notification management
     void markAsRead(Long notificationId);
     void markAllAsRead(Long userId);
@@ -48,6 +51,12 @@ public interface NotificationService {
     void deletePreference(Long preferenceId);
     void deleteAllPreferences(Long userId);
     
+    // Get all preferences (for admin operations)
+    List<NotificationPreference> getAllPreferences();
+    
     // Update preference
     NotificationPreference updatePreference(Long preferenceId, NotificationPreferenceUpdateDTO updateDTO);
+    
+    // Direct SQL update for preference enabled status
+    boolean updatePreferenceEnabledStatusDirectly(Long preferenceId, boolean enabled);
 } 

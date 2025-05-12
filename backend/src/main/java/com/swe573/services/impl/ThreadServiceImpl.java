@@ -9,6 +9,7 @@ import com.swe573.models.Vote;
 import com.swe573.models.enums.VoteType;
 import com.swe573.models.enums.ThreadStyle;
 import com.swe573.models.enums.Role;
+import com.swe573.models.enums.NotificationType;
 import com.swe573.repositories.ThreadRepository;
 import com.swe573.repositories.TagRepository;
 import com.swe573.repositories.UserRepository;
@@ -16,6 +17,7 @@ import com.swe573.services.ThreadService;
 import com.swe573.services.VoteService;
 import com.swe573.services.NlpService;
 import com.swe573.services.ThreadHistoryService;
+import com.swe573.services.NotificationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,6 +75,9 @@ public class ThreadServiceImpl implements ThreadService {
 
     @Autowired
     private ThreadHistoryService threadHistoryService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -305,6 +310,28 @@ public class ThreadServiceImpl implements ThreadService {
         
         // Log thread follow to history
         threadHistoryService.logThreadFollow(updatedThread, user);
+        
+        // Create a notification for the user who followed the thread
+        notificationService.createNotification(
+            userId,
+            "You started following thread: " + thread.getTitle(),
+            NotificationType.NEW_THREAD_FOLLOWED,
+            threadId,
+            "THREAD"
+        );
+        
+        // If this thread belongs to another user, notify them that someone followed their thread
+        if (!thread.getAuthor().getId().equals(userId)) {
+            notificationService.createNotification(
+                thread.getAuthor().getId(),
+                user.getUsername() + " started following your thread: " + thread.getTitle(),
+                NotificationType.USER_FOLLOWED,
+                threadId,
+                "THREAD",
+                userId,
+                user.getUsername()
+            );
+        }
         
         return updatedThread;
     }

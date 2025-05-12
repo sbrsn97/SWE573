@@ -17,6 +17,7 @@ RUN npm install
 COPY . .
 
 # Build the application - skip TypeScript type checking to avoid build errors
+# Note: The application now uses fixed light theme settings instead of OS detection
 RUN npm run build:skip-typescript
 
 # Production stage

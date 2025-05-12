@@ -624,11 +624,6 @@ const CommentSection = ({ threadId, threadAuthorId, canInteract = true }: Commen
               disabled={!canInteract || submitting}
             ></textarea>
           </div>
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-              <p className="text-red-700">{error}</p>
-            </div>
-          )}
           <div className="flex justify-end">
             <button
               type="submit"

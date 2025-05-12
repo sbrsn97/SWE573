@@ -1,4 +1,10 @@
-export const API_BASE_URL = 'http://localhost:8080/api';
+// Read the API base URL from environment variables with a fallback
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
+// Log for debugging during development
+if (import.meta.env.DEV) {
+  console.log('API_BASE_URL:', API_BASE_URL);
+}
 
 export const API_ENDPOINTS = {
     auth: {

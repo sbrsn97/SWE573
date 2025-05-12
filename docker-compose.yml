@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # Database
   postgres:
     image: postgres:14
     container_name: swe573-postgres
@@ -13,7 +14,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Database admin tool
   pgadmin:
     image: dpage/pgadmin4
     container_name: swe573-pgadmin
@@ -24,6 +31,43 @@ services:
       - "5050:80"
     depends_on:
       - postgres
+    restart: unless-stopped
+
+  # Spring Boot backend
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: swe573-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/connect_the_dots_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: swe573
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      JWT_SECRET: ${JWT_SECRET:-default_jwt_secret_for_development_only}
+      JWT_EXPIRATION: 86400000
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # React frontend
+  frontend:
+    build:
+      context: ./frontend/threadapp
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080/api}
+    container_name: swe573-frontend
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://backend:8080/api}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:

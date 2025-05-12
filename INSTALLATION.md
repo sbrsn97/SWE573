@@ -7,7 +7,7 @@ This guide provides complete instructions for installing and running the Connect
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) (for containerized installation)
 - Alternatively, for local development:
   - Java 17 or higher
-  - Node.js 18 or higher
+  - Node.js 20 or higher
   - PostgreSQL 14 or higher
 
 ## Option 1: Quick Start with Docker (Recommended)

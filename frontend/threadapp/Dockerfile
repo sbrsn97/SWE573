@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 WORKDIR /app
 
 # Set build arguments with defaults (these can be overridden at build time)
@@ -10,7 +10,8 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
-RUN npm ci
+# Use npm install instead of npm ci to handle new dependencies not in package-lock.json
+RUN npm install
 
 # Copy the rest of the application code
 COPY . .

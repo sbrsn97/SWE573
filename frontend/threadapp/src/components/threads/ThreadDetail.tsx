@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
-import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes, FaUserMinus, FaUserPlus, FaEllipsisV, FaSearch, FaHistory, FaExclamationTriangle, FaArrowsAlt, FaCompass } from 'react-icons/fa';
+import { FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown, FaPlus, FaLink, FaEdit, FaTrash, FaTimes, FaUserMinus, FaUserPlus, FaEllipsisV, FaSearch, FaHistory, FaExclamationTriangle, FaArrowsAlt, FaCompass, FaGlobe, FaLock, FaUsers } from 'react-icons/fa';
 import { BiNetworkChart } from 'react-icons/bi';
-import { fetchWithAuth, handleAuthError, canEditThread } from '../../utils/authUtils';
+import { fetchWithAuth, handleAuthError, canEditThread, canInteractWithThread, isAdmin } from '../../utils/authUtils';
 import { addToRecentThreads } from '../../utils/recentThreadsUtils';
 import Tag from '../tags/Tag';
 import GraphVisualization from '../graph/GraphVisualization';
@@ -12,8 +12,12 @@ import { HexColorPicker } from 'react-colorful';
 import NodeDetails from '../graph/NodeDetails';
 import EdgeDetails from '../graph/EdgeDetails';
 import CommentSection from '../comments/CommentSection';
+import WikidataResearch from './WikidataResearch';
+import NodePreviewSuggestions from '../graph/NodePreviewSuggestions';
 import eventBus, { EVENTS } from '../../utils/eventBus';
 import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
+import { ThreadStyle } from './CreateThreadPage';
+import { Toast } from 'primereact/toast';
 
 interface Tag {
   id: number;
@@ -43,6 +47,7 @@ interface Thread {
   active: boolean;
   deactivatedByRole: string | null;
   followerIds?: number[];
+  threadStyle?: ThreadStyle;
 }
 
 interface GraphNode {
@@ -82,6 +87,26 @@ interface VoteStatus {
   voteCount: number;
 }
 
+// Add thread style descriptions
+const threadStyleDescriptions = {
+  [ThreadStyle.PUBLIC]: 'Public - Anyone can view and interact with this thread',
+  [ThreadStyle.PRIVATE]: 'Private - Only the author and invited users can view and interact',
+  [ThreadStyle.FOLLOW_TO_INTERACT]: 'Follow to Interact - Anyone can view, but only followers can comment or vote'
+};
+
+// Thread style icons/colors
+const threadStyleIcons = {
+  [ThreadStyle.PUBLIC]: <FaGlobe className="mr-1" />,
+  [ThreadStyle.PRIVATE]: <FaLock className="mr-1" />,
+  [ThreadStyle.FOLLOW_TO_INTERACT]: <FaUsers className="mr-1" />
+};
+
+const threadStyleColors = {
+  [ThreadStyle.PUBLIC]: 'bg-green-100 text-green-800',
+  [ThreadStyle.PRIVATE]: 'bg-red-100 text-red-800',
+  [ThreadStyle.FOLLOW_TO_INTERACT]: 'bg-blue-100 text-blue-800'
+};
+
 const ThreadDetail = () => {
   const { id } = useParams<{ id: string }>();
   const [thread, setThread] = useState<Thread | null>(null);
@@ -96,6 +121,7 @@ const ThreadDetail = () => {
   const [currentUser, setCurrentUser] = useState<{id: number} | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [canInteract, setCanInteract] = useState(true);
   
   // Graph interaction mode state
   const [interactionMode, setInteractionMode] = useState<'move' | 'connect'>('move');
@@ -144,7 +170,14 @@ const ThreadDetail = () => {
   const optionsMenuRef = useRef<HTMLDivElement>(null);
   const [canEdit, setCanEdit] = useState(false);
   
+  // Node description for new nodes
+  const [nodeDescription, setNodeDescription] = useState('');
+  const [nodeWikidataEntity, setNodeWikidataEntity] = useState<{id: string, label: string, description: string} | null>(null);
+  
   const navigate = useNavigate();
+  
+  // Toast reference
+  const toast = useRef<Toast>(null);
 
   // CSS for animations
   useEffect(() => {
@@ -292,6 +325,33 @@ const ThreadDetail = () => {
       setIsFollowing(thread.followerIds.includes(currentUser.id));
     }
   }, [currentUser, thread]);
+
+  // Update canInteract state based on thread visibility
+  useEffect(() => {
+    if (!thread || !currentUser) {
+      // By default, users can interact with PUBLIC threads even when not logged in
+      setCanInteract(thread?.threadStyle === ThreadStyle.PUBLIC || !thread?.threadStyle);
+      return;
+    }
+
+    const isThreadOwner = thread.authorId === currentUser.id;
+    // Check for admin status using async function, but set a default based on current knowledge
+    isAdmin().then(adminStatus => {
+      setCanInteract(canInteractWithThread(
+        thread.threadStyle,
+        isFollowing,
+        isThreadOwner,
+        adminStatus
+      ));
+    }).catch(() => {
+      // If error checking admin status, just use owner and following status
+      setCanInteract(
+        isThreadOwner || 
+        thread.threadStyle === ThreadStyle.PUBLIC || 
+        (thread.threadStyle === ThreadStyle.FOLLOW_TO_INTERACT && isFollowing)
+      );
+    });
+  }, [currentUser, thread, isFollowing]);
 
   // Add function to fetch author details
   const fetchAuthor = useCallback(async (authorId: number) => {
@@ -468,6 +528,25 @@ const ThreadDetail = () => {
 
   const handleVote = async (isUpvote: boolean) => {
     if (!thread || votingInProgress) return;
+    
+    // Check if user can interact with this thread
+    if (!canInteract) {
+      // If thread is FOLLOW_TO_INTERACT, suggest following
+      if (thread.threadStyle === ThreadStyle.FOLLOW_TO_INTERACT) {
+        toast.current?.show({
+          severity: 'info',
+          summary: 'Follow Required',
+          detail: 'You need to follow this thread to vote on it'
+        });
+      } else if (thread.threadStyle === ThreadStyle.PRIVATE) {
+        toast.current?.show({
+          severity: 'info',
+          summary: 'Private Thread',
+          detail: 'Only the author can interact with this private thread'
+        });
+      }
+      return;
+    }
 
     setVotingInProgress(true);
     setError(null);
@@ -600,69 +679,88 @@ const ThreadDetail = () => {
 
   const handleCreateNode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id) return;
+    
+    if (!nodeLabel.trim()) {
+      setFormError('Node label is required');
+      return;
+    }
     
     setIsSubmitting(true);
     setFormError(null);
     
     try {
-      const nodeData = {
-        label: nodeLabel,
-        threadId: Number(id),
-        xPosition: 100,
-        yPosition: 100,
-        color: nodeColor,
-        shape: nodeShape,
-        size: nodeSize
-      };
+      // Generate random position within viewport if not specified
+      const randomX = Math.random() * 600 - 300;
+      const randomY = Math.random() * 600 - 300;
       
-      // Try to create the node without changing page state on error
-      try {
-        const response = await fetchWithAuth(API_ENDPOINTS.graph.nodes.create(Number(id)), {
+      const response = await fetchWithAuth(
+        API_ENDPOINTS.graph.nodes.create(Number(id)),
+        {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(nodeData)
-        });
-        
-        if (!response.ok) {
-          // Handle authentication errors but skip redirects
-          if (response.status === 401) {
-            setFormError("Authentication error. Please log in again.");
-            return;
-          }
-          
-          const errorResponse = await response.json();
-          
-          // Look for profanity-related messages in the error
-          if (errorResponse && errorResponse.message && 
-             (errorResponse.message.toLowerCase().includes('inappropriate language') ||
-              errorResponse.message.toLowerCase().includes('profanity'))) {
-            setFormError("Your node label contains inappropriate language. Please revise it.");
-            return;
-          }
-          
-          setFormError(errorResponse.message || 'Failed to create node');
-          return;
+          body: JSON.stringify({
+            label: nodeLabel,
+            xPosition: randomX,
+            yPosition: randomY,
+            color: nodeColor,
+            shape: nodeShape,
+            size: nodeSize,
+            details: nodeWikidataEntity ? {
+              wikidataEntityId: nodeWikidataEntity.id,
+              label: nodeWikidataEntity.label,
+              description: nodeDescription || nodeWikidataEntity.description
+            } : null
+          })
         }
+      );
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Refresh nodes after creating a new one
+        fetchGraphData();
         
-        // Success - reset form and refresh graph data
+        // Reset form and close modal
         setNodeLabel('');
         setNodeColor('#4287f5');
         setNodeShape('circle');
         setNodeSize(50);
+        setNodeDescription('');
+        setNodeWikidataEntity(null);
         setShowNodeForm(false);
-        await fetchGraphData();
-      } catch (err) {
-        console.error('Error creating node:', err);
-        setFormError('Failed to create node. Please try again.');
+        
+        // Show success message
+        if (toast.current) {
+          toast.current.show({
+            severity: 'success',
+            summary: 'Success',
+            detail: 'Node created successfully',
+            life: 3000
+          });
+        }
+      } else {
+        if (isProfanityError(data)) {
+          setFormError(formatProfanityError(data));
+        } else {
+          setFormError(data.message || 'Failed to create node');
+        }
       }
     } catch (err) {
-      console.error('Error in node creation process:', err);
-      setFormError('An unexpected error occurred. Please try again.');
+      console.error('Error creating node:', err);
+      setFormError('Failed to create node. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Handle entity selection from suggestions
+  const handleEntitySelect = (entity: {id: string, label: string, description: string}) => {
+    setNodeWikidataEntity(entity);
+    // If node doesn't have a label yet, use the entity label
+    if (!nodeLabel) {
+      setNodeLabel(entity.label);
     }
   };
 
@@ -910,6 +1008,16 @@ const ThreadDetail = () => {
   };
 
   const handleEditThread = () => {
+    // Don't allow editing if user can't interact with the thread
+    if (!canInteract) {
+      toast.current?.show({
+        severity: 'info',
+        summary: 'Action Not Allowed',
+        detail: 'You cannot edit this thread due to visibility restrictions'
+      });
+      return;
+    }
+    
     setShowOptionsMenu(false);
     navigate(`/threads/${id}/edit`);
   };
@@ -918,10 +1026,16 @@ const ThreadDetail = () => {
     // Close the menu
     setShowOptionsMenu(false);
     
-    // Implement Wikidata research functionality
-    alert("Wikidata research functionality will be implemented here");
-    // In the future, this could make API calls to fetch Wikidata information
-    // related to the thread's tags or title
+    // Find the WikidataResearch component and scroll to it
+    const wikidataSection = document.getElementById('wikidata-research-section');
+    if (wikidataSection) {
+      wikidataSection.scrollIntoView({ behavior: 'smooth' });
+      // Trigger a visual highlight effect
+      wikidataSection.classList.add('highlight-pulse');
+      setTimeout(() => {
+        wikidataSection.classList.remove('highlight-pulse');
+      }, 2000);
+    }
   };
 
   const handleViewThreadHistory = () => {
@@ -1122,7 +1236,13 @@ const ThreadDetail = () => {
                         {canEdit && (
                           <button 
                             onClick={handleEditThread}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                            className={`w-full text-left px-4 py-2 text-sm ${
+                              canInteract 
+                                ? 'text-gray-700 hover:bg-gray-100' 
+                                : 'text-gray-400 cursor-not-allowed'
+                            } flex items-center gap-2`}
+                            disabled={!canInteract}
+                            title={!canInteract ? "You cannot edit this thread due to visibility restrictions" : "Edit Thread"}
                           >
                             <FaEdit size={14} className="text-gray-500" />
                             <span>Edit Thread</span>
@@ -1131,13 +1251,15 @@ const ThreadDetail = () => {
                         <button 
                           onClick={handleResearchWikidata}
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          title="Extract keywords from this thread and research related concepts on Wikidata"
                         >
                           <FaSearch size={14} className="text-gray-500" />
-                          <span>Research on Wikidata</span>
+                          <span>Research Thread Keywords</span>
                         </button>
                         <button 
                           onClick={handleViewThreadHistory}
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                          title="View thread modification history"
                         >
                           <FaHistory size={14} className="text-gray-500" />
                           <span>View Thread History</span>
@@ -1179,7 +1301,8 @@ const ThreadDetail = () => {
               <div className="flex items-center bg-gray-50 rounded-lg p-2 shadow-sm flex-shrink-0">
                 {authorLoading ? (
                   <div className="flex items-center text-gray-500 text-sm">
-                    <span className="animate-pulse">Loading author...</span>
+                    <div className="animate-pulse h-8 w-8 rounded-full bg-gray-300 mr-2"></div>
+                    <div className="animate-pulse h-3 w-24 bg-gray-300 rounded"></div>
                   </div>
                 ) : author ? (
                   <Link 
@@ -1204,9 +1327,17 @@ const ThreadDetail = () => {
               </div>
               
               <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
+                {/* Thread Visibility Badge */}
+                {thread.threadStyle && (
+                  <div className={`flex items-center text-xs px-2 py-1 rounded-full ${threadStyleColors[thread.threadStyle]}`}>
+                    {threadStyleIcons[thread.threadStyle]}
+                    <span>{thread.threadStyle.replace(/_/g, ' ')}</span>
+                  </div>
+                )}
+                
                 <div className="flex items-center text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
                   <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                   </svg>
                   <span className="whitespace-nowrap">Posted {formatDate(thread.createdAt)}</span>
                 </div>
@@ -1252,11 +1383,15 @@ const ThreadDetail = () => {
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleVote(true)}
-                  className={`p-1.5 rounded-full hover:bg-blue-50 transition-colors ${
+                  className={`p-1.5 rounded-full ${!canInteract ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50'} transition-colors ${
                     userVote === 'UPVOTE' ? 'text-blue-600 bg-blue-50' : 'text-gray-500'
                   }`}
-                  disabled={votingInProgress}
-                  title="Upvote"
+                  disabled={votingInProgress || !canInteract}
+                  title={!canInteract && thread?.threadStyle === ThreadStyle.FOLLOW_TO_INTERACT 
+                    ? "Follow this thread to upvote" 
+                    : !canInteract && thread?.threadStyle === ThreadStyle.PRIVATE 
+                    ? "This is a private thread" 
+                    : "Upvote"}
                 >
                   {userVote === 'UPVOTE' ? <FaThumbsUp size={16} /> : <FaRegThumbsUp size={16} />}
                 </button>
@@ -1268,11 +1403,15 @@ const ThreadDetail = () => {
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleVote(false)}
-                  className={`p-1.5 rounded-full hover:bg-red-50 transition-colors ${
+                  className={`p-1.5 rounded-full ${!canInteract ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50'} transition-colors ${
                     userVote === 'DOWNVOTE' ? 'text-red-600 bg-red-50' : 'text-gray-500'
                   }`}
-                  disabled={votingInProgress}
-                  title="Downvote"
+                  disabled={votingInProgress || !canInteract}
+                  title={!canInteract && thread?.threadStyle === ThreadStyle.FOLLOW_TO_INTERACT 
+                    ? "Follow this thread to downvote" 
+                    : !canInteract && thread?.threadStyle === ThreadStyle.PRIVATE 
+                    ? "This is a private thread" 
+                    : "Downvote"}
                 >
                   {userVote === 'DOWNVOTE' ? <FaThumbsDown size={16} /> : <FaRegThumbsDown size={16} />}
                 </button>
@@ -1399,8 +1538,19 @@ const ThreadDetail = () => {
                   onClick={() => {
                     setShowNodeForm(true);
                   }}
-                  className="tooltip p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 flex items-center justify-center shadow hover:shadow-md transition-all duration-150 transform hover:scale-105 active:scale-95"
-                  title="Add New Node"
+                  className={`tooltip p-2 rounded-full ${
+                    canInteract 
+                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  } flex items-center justify-center shadow hover:shadow-md transition-all duration-150 transform hover:scale-105 active:scale-95`}
+                  title={
+                    !canInteract && thread?.threadStyle === ThreadStyle.FOLLOW_TO_INTERACT
+                      ? "You need to follow this thread to add nodes"
+                      : !canInteract && thread?.threadStyle === ThreadStyle.PRIVATE
+                      ? "This is a private thread"
+                      : "Add New Node"
+                  }
+                  disabled={!canInteract}
                 >
                   <FaPlus size={16} />
                 </button>
@@ -1460,15 +1610,18 @@ const ThreadDetail = () => {
           </div>
         </div>
         
+        {/* Wikidata Research Section */}
+        {thread && <WikidataResearch threadTitle={thread.title} threadDescription={thread.description || ''} />}
+        
         {/* Comment Section */}
-        {thread && <CommentSection threadId={thread.id} threadAuthorId={thread.authorId} />}
+        {thread && <CommentSection threadId={thread.id} threadAuthorId={thread.authorId} canInteract={canInteract} />}
       </div>
     );
   };
 
   const renderNodeForm = () => (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Create New Node</h3>
           <button 
@@ -1492,6 +1645,25 @@ const ThreadDetail = () => {
           </div>
         )}
         
+        {nodeWikidataEntity && (
+          <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded-md">
+            <div className="flex justify-between">
+              <div>
+                <p className="font-medium">{nodeWikidataEntity.label}</p>
+                <p className="text-xs text-gray-600">{nodeWikidataEntity.id}</p>
+                <p className="text-sm mt-1">{nodeWikidataEntity.description}</p>
+              </div>
+              <button
+                onClick={() => setNodeWikidataEntity(null)}
+                className="text-gray-500 hover:text-red-500"
+                title="Clear selected entity"
+              >
+                <FaTimes />
+              </button>
+            </div>
+          </div>
+        )}
+        
         <form onSubmit={handleCreateNode}>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Node Label</label>
@@ -1505,7 +1677,25 @@ const ThreadDetail = () => {
             />
           </div>
           
-          <div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea
+              value={nodeDescription}
+              onChange={(e) => setNodeDescription(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter node description (optional)"
+              rows={3}
+            />
+          </div>
+          
+          {/* Add the NodePreviewSuggestions component */}
+          <NodePreviewSuggestions 
+            label={nodeLabel}
+            description={nodeDescription}
+            onEntitySelect={handleEntitySelect}
+          />
+          
+          <div className="my-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Node Color</label>
             <div className="flex flex-col md:flex-row gap-4">
               <div className="w-full md:w-1/2">
@@ -1527,7 +1717,7 @@ const ThreadDetail = () => {
             </div>
           </div>
           
-          <div>
+          <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Node Shape</label>
             <select
               value={nodeShape}
@@ -1539,7 +1729,7 @@ const ThreadDetail = () => {
             </select>
           </div>
           
-          <div>
+          <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Node Size: {nodeSize}
             </label>
@@ -1718,6 +1908,9 @@ const ThreadDetail = () => {
             onDelete={handleDeleteEdge}
           />
         )}
+        
+        {/* Toast for notifications */}
+        <Toast ref={toast} />
       </div>
     </MainLayout>
   );

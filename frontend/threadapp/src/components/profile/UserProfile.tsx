@@ -10,11 +10,12 @@ import { Dialog } from 'primereact/dialog';
 import { API_ENDPOINTS } from '../../config/config';
 import MainLayout from '../layout/MainLayout';
 import { fetchWithAuth, handleAuthError } from '../../utils/authUtils';
-import { FaUserPlus, FaUserMinus, FaPencilAlt, FaTags, FaChevronLeft, FaChevronRight, FaFilter, FaSort, FaCalendarAlt } from 'react-icons/fa';
+import { FaUserPlus, FaUserMinus, FaPencilAlt, FaTags, FaChevronLeft, FaChevronRight, FaFilter, FaSort, FaCalendarAlt, FaKey } from 'react-icons/fa';
 import Tag from '../tags/Tag';
 import 'primeicons/primeicons.css';
 import ThreadCard from '../threads/ThreadCard';
 import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
+import ChangePasswordDialog from './ChangePasswordDialog';
 
 interface User {
   id: number;
@@ -124,6 +125,9 @@ const UserProfile = () => {
   const [dateFilter, setDateFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Add state for password change dialog
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -1343,7 +1347,15 @@ const UserProfile = () => {
         <div className="flex flex-col gap-5">
           <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-100">
             <div className="text-2xl font-bold text-blue-800">Profile</div>
-            {!isOwnProfile && (
+            {isOwnProfile ? (
+              <Button
+                label="Change Password"
+                icon={<FaKey className="mr-2" />}
+                onClick={() => setShowPasswordDialog(true)}
+                className="p-button-outlined p-button-primary"
+                size="small"
+              />
+            ) : (
               <Button
                 label={isFollowing ? 'Unfollow' : 'Follow'}
                 icon={isFollowing ? <FaUserMinus className="mr-2" /> : <FaUserPlus className="mr-2" />}
@@ -1481,19 +1493,38 @@ const UserProfile = () => {
 
   return (
     <MainLayout>
-      {loading ? (
-        <div className="flex justify-center items-center py-6">
-          <p className="text-gray-600">Loading profile...</p>
-        </div>
-      ) : user ? (
-        renderProfile(user)
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm p-6 max-w-md">
-          <div className="text-center py-4 text-gray-500">
-            {error || 'User not found'}
+      <div className="container mx-auto px-4 py-8">
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <i className="pi pi-spin pi-spinner text-3xl"></i>
           </div>
-        </div>
-      )}
+        ) : error ? (
+          <div className="text-center p-6 bg-red-50 rounded-lg">
+            <p className="text-red-500">{error}</p>
+          </div>
+        ) : user ? (
+          <>
+            {renderProfile(user)}
+            
+            {/* Password change dialog */}
+            {isOwnProfile && user.id && (
+              <ChangePasswordDialog
+                userId={user.id}
+                visible={showPasswordDialog}
+                onHide={() => setShowPasswordDialog(false)}
+                onSuccess={() => {
+                  toast.current?.show({
+                    severity: 'success',
+                    summary: 'Success',
+                    detail: 'Your password has been updated successfully',
+                    life: 3000
+                  });
+                }}
+              />
+            )}
+          </>
+        ) : null}
+      </div>
     </MainLayout>
   );
 };

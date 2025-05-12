@@ -25,6 +25,7 @@ public class NodeDTO {
     private Integer size;
     private Integer version;
     private Long detailsId;
+    private NodeDetailsDTO details;
     
     public static NodeDTO fromEntity(Node node) {
         if (node == null) {
@@ -41,7 +42,22 @@ public class NodeDTO {
         dto.setShape(node.getShape());
         dto.setSize(node.getSize());
         dto.setVersion(node.getVersion());
-        dto.setDetailsId(node.getDetails() != null ? node.getDetails().getId() : null);
+        
+        if (node.getDetails() != null) {
+            dto.setDetailsId(node.getDetails().getId());
+            
+            NodeDetailsDTO detailsDTO = new NodeDetailsDTO();
+            detailsDTO.setId(node.getDetails().getId());
+            detailsDTO.setNodeId(node.getId());
+            detailsDTO.setLabel(node.getDetails().getLabel());
+            detailsDTO.setDescription(node.getDetails().getDescription());
+            detailsDTO.setWikidataEntityId(node.getDetails().getWikidataEntityId());
+            
+            dto.setDetails(detailsDTO);
+        } else {
+            dto.setDetailsId(null);
+            dto.setDetails(null);
+        }
         
         return dto;
     }

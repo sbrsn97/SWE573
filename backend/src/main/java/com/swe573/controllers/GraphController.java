@@ -5,6 +5,7 @@ import com.swe573.models.Node;
 import com.swe573.models.User;
 import com.swe573.services.GraphService;
 import com.swe573.services.AuthenticationService;
+import com.swe573.services.NodePreviewService;
 import com.swe573.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ public class GraphController {
 
     private final GraphService graphService;
     private final AuthenticationService authenticationService;
+    private final NodePreviewService nodePreviewService;
 
     // Node endpoints
     @PostMapping("/threads/{threadId}/nodes")
@@ -32,6 +34,15 @@ public class GraphController {
             Authentication authentication) {
         User currentUser = authenticationService.getCurrentUser();
         
+        // Check if details are provided
+        String wikidataEntityId = null;
+        String description = null;
+        
+        if (nodeDTO.getDetails() != null) {
+            wikidataEntityId = nodeDTO.getDetails().getWikidataEntityId();
+            description = nodeDTO.getDetails().getDescription();
+        }
+        
         Node node = graphService.createNode(
             threadId,
             currentUser.getId(),
@@ -40,7 +51,9 @@ public class GraphController {
             nodeDTO.getYPosition(), 
             nodeDTO.getColor(),
             nodeDTO.getShape(), 
-            nodeDTO.getSize()
+            nodeDTO.getSize(),
+            wikidataEntityId,
+            description
         );
         return ResponseEntity.ok(ApiResponse.success("Node created successfully", NodeDTO.fromEntity(node)));
     }
@@ -104,6 +117,15 @@ public class GraphController {
                 .map(NodeDTO::fromEntity)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success("Nodes searched successfully", nodeDTOs));
+    }
+
+    @PostMapping("/preview-node")
+    @GetMapping("/preview-node")
+    public ResponseEntity<ApiResponse<NodePreviewDTO>> generateNodePreview(
+            @RequestParam(required = false) String label,
+            @RequestParam(required = false) String description) {
+        NodePreviewDTO preview = nodePreviewService.generatePreview(label, description);
+        return ResponseEntity.ok(ApiResponse.success("Node preview generated successfully", preview));
     }
 
     // Edge endpoints
@@ -194,5 +216,14 @@ public class GraphController {
                 .map(NodeDTO::fromEntity)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success("Connected nodes retrieved successfully", nodeDTOs));
+    }
+
+    @GetMapping("/nodes/{nodeId}/edges")
+    public ResponseEntity<ApiResponse<List<EdgeDTO>>> getNodeEdges(@PathVariable Long nodeId) {
+        List<Edge> edges = graphService.getEdgesByNode(nodeId);
+        List<EdgeDTO> edgeDTOs = edges.stream()
+                .map(EdgeDTO::fromEntity)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success("Edges retrieved successfully", edgeDTOs));
     }
 } 

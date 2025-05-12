@@ -200,6 +200,11 @@ public class ThreadServiceImpl implements ThreadService {
         existingThread.setTitle(threadDTO.getTitle());
         existingThread.setDescription(threadDTO.getDescription());
         
+        // Update thread style if provided
+        if (threadDTO.getThreadStyle() != null) {
+            existingThread.setThreadStyle(threadDTO.getThreadStyle());
+        }
+        
         // Handle tags
         Set<Tag> oldTags = new HashSet<>(existingThread.getTags());
         Set<Tag> newTags = new HashSet<>();

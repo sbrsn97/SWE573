@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
         me: `${API_BASE_URL}/users/me`,
         all: `${API_BASE_URL}/users`,
         update: (id: number) => `${API_BASE_URL}/users/${id}`,
+        changePassword: (id: number) => `${API_BASE_URL}/users/${id}/password`,
         search: `${API_BASE_URL}/users/search`,
         follow: (id: number, followedId: number) => `${API_BASE_URL}/users/${id}/follow/${followedId}`,
         unfollow: (id: number, followedId: number) => `${API_BASE_URL}/users/${id}/unfollow/${followedId}`
@@ -135,6 +136,10 @@ export const API_ENDPOINTS = {
         nodeDetails: {
             get: (detailsId: number) => `${API_BASE_URL}/graph/nodedetails/${detailsId}`,
             getByNode: (nodeId: number) => `${API_BASE_URL}/graph/nodes/${nodeId}/details`
+        },
+        // Preview endpoints
+        preview: {
+            generate: `${API_BASE_URL}/graph/preview-node`
         },
         // Edge endpoints
         edges: {

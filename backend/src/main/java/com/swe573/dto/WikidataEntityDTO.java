@@ -19,6 +19,9 @@ public class WikidataEntityDTO {
     @Schema(description = "Map of property labels to their values")
     private Map<String, String> properties;
     
+    @Schema(description = "Map of property labels to their descriptions")
+    private Map<String, String> propertyDescriptions;
+    
     @Schema(description = "URL to the entity on Wikidata")
     private String url;
     

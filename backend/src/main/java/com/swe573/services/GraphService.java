@@ -37,6 +37,12 @@ public class GraphService {
     
     @Transactional
     public Node createNode(Long threadId, Long userId, String label, Double xPosition, Double yPosition, String color, String shape, Integer size) {
+        return createNode(threadId, userId, label, xPosition, yPosition, color, shape, size, null, null);
+    }
+    
+    @Transactional
+    public Node createNode(Long threadId, Long userId, String label, Double xPosition, Double yPosition, 
+                          String color, String shape, Integer size, String wikidataEntityId, String description) {
         // Check for profanity in node label
         if (nlpService.containsProfanity(label)) {
             throw new IllegalArgumentException("Node label contains inappropriate language and cannot be created.");
@@ -53,6 +59,16 @@ public class GraphService {
         node.setColor(color);
         node.setShape(shape);
         node.setSize(size);
+        
+        // Add node details if wikidataEntityId is provided
+        if (wikidataEntityId != null) {
+            NodeDetails details = new NodeDetails();
+            details.setNode(node);
+            details.setWikidataEntityId(wikidataEntityId);
+            details.setLabel(label);
+            details.setDescription(description);
+            node.setDetails(details);
+        }
 
         Node savedNode = nodeRepository.save(node);
         

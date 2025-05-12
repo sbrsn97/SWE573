@@ -9,6 +9,7 @@ import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '.
 interface CommentSectionProps {
   threadId: number;
   threadAuthorId?: number;
+  canInteract?: boolean;
 }
 
 interface CreateCommentDTO {
@@ -28,7 +29,7 @@ interface VoteStatus {
   voteCount: number;
 }
 
-const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
+const CommentSection = ({ threadId, threadAuthorId, canInteract = true }: CommentSectionProps) => {
   const [parentComments, setParentComments] = useState<Comment[]>([]);
   const [childComments, setChildComments] = useState<Record<number, Comment[]>>({});
   const [childCounts, setChildCounts] = useState<CommentCounts>({});
@@ -102,6 +103,10 @@ const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
 
   // Vote on a comment
   const handleVote = async (commentId: number, isUpvote: boolean, isParent: boolean) => {
+    if (!canInteract) {
+      return; // Don't allow voting if user can't interact with the thread
+    }
+
     if (!currentUserId) {
       setError('You must be logged in to vote');
       return;
@@ -598,32 +603,47 @@ const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
       
       {error && <ProfanityErrorMessage message={error} />}
       
-      {/* Add comment form */}
-      <form onSubmit={handleSubmitComment} className="mb-8">
-        <div className="flex items-start">
-          <div className="mr-4 bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center">
-            <FaUser className="text-gray-500" />
+      {/* Main Comment Form */}
+      <div className="mt-6 mb-8">
+        <h3 className="text-lg font-medium mb-2">Leave a Comment</h3>
+        {!canInteract && (
+          <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-300 text-blue-700 text-sm">
+            <p>You cannot comment on this thread. You may need to follow it first or have permission from the author.</p>
           </div>
-          <div className="flex-1">
+        )}
+        <form onSubmit={handleSubmitComment} className="space-y-4">
+          <div>
             <textarea
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-              placeholder="Add a comment..."
               value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              disabled={submitting}
+              onChange={e => setNewComment(e.target.value)}
+              placeholder={canInteract ? "Add your comment here..." : "You cannot comment on this thread"}
+              className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                !canInteract ? 'bg-gray-100 cursor-not-allowed' : ''
+              }`}
+              rows={4}
+              disabled={!canInteract || submitting}
             ></textarea>
-            <div className="mt-2 flex justify-end">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                disabled={submitting || newComment.trim() === ''}
-              >
-                {submitting ? 'Submitting...' : 'Submit'}
-              </button>
-            </div>
           </div>
-        </div>
-      </form>
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+              <p className="text-red-700">{error}</p>
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              className={`px-4 py-2 rounded-md ${
+                canInteract
+                  ? 'bg-blue-500 text-white hover:bg-blue-600'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              disabled={!canInteract || submitting || !newComment.trim()}
+            >
+              {submitting ? 'Submitting...' : 'Submit Comment'}
+            </button>
+          </div>
+        </form>
+      </div>
       
       {/* Display comments */}
       {parentComments.length === 0 ? (
@@ -713,9 +733,10 @@ const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
                         comment.userVoteType === 'UPVOTE' 
                           ? 'text-blue-600' 
                           : 'text-gray-500 hover:text-blue-600'
-                      } transition-colors`}
+                      } transition-colors ${!canInteract ? 'opacity-50 cursor-not-allowed' : ''}`}
                       onClick={() => handleVote(comment.id, true, true)}
-                      disabled={votingInProgress[comment.id]}
+                      disabled={votingInProgress[comment.id] || !canInteract}
+                      title={!canInteract ? "You cannot vote on this thread" : "Upvote"}
                     >
                       {comment.userVoteType === 'UPVOTE' ? (
                         <FaThumbsUp size={14} />
@@ -731,9 +752,10 @@ const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
                         comment.userVoteType === 'DOWNVOTE' 
                           ? 'text-red-600' 
                           : 'text-gray-500 hover:text-red-600'
-                      } transition-colors`}
+                      } transition-colors ${!canInteract ? 'opacity-50 cursor-not-allowed' : ''}`}
                       onClick={() => handleVote(comment.id, false, true)}
-                      disabled={votingInProgress[comment.id]}
+                      disabled={votingInProgress[comment.id] || !canInteract}
+                      title={!canInteract ? "You cannot vote on this thread" : "Downvote"}
                     >
                       {comment.userVoteType === 'DOWNVOTE' ? (
                         <FaThumbsDown size={14} />
@@ -744,8 +766,10 @@ const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
                     <span className="text-xs text-gray-500">{comment.downvoteCount}</span>
                   </div>
                   <button 
-                    className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-1 transition-colors"
+                    className={`text-gray-500 hover:text-blue-600 text-sm flex items-center gap-1 transition-colors ${!canInteract ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={() => setReplyingTo(comment.id)}
+                    disabled={!canInteract}
+                    title={!canInteract ? "You cannot reply to this thread" : "Reply"}
                   >
                     <FaReply size={14} />
                     <span>Reply</span>
@@ -897,9 +921,10 @@ const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
                               childComment.userVoteType === 'UPVOTE' 
                                 ? 'text-blue-600' 
                                 : 'text-gray-500 hover:text-blue-600'
-                            } transition-colors`}
+                            } transition-colors ${!canInteract ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={() => handleVote(childComment.id, true, false)}
-                            disabled={votingInProgress[childComment.id]}
+                            disabled={votingInProgress[childComment.id] || !canInteract}
+                            title={!canInteract ? "You cannot vote on this thread" : "Upvote"}
                           >
                             {childComment.userVoteType === 'UPVOTE' ? (
                               <FaThumbsUp size={12} />
@@ -915,9 +940,10 @@ const CommentSection = ({ threadId, threadAuthorId }: CommentSectionProps) => {
                               childComment.userVoteType === 'DOWNVOTE' 
                                 ? 'text-red-600' 
                                 : 'text-gray-500 hover:text-red-600'
-                            } transition-colors`}
+                            } transition-colors ${!canInteract ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={() => handleVote(childComment.id, false, false)}
-                            disabled={votingInProgress[childComment.id]}
+                            disabled={votingInProgress[childComment.id] || !canInteract}
+                            title={!canInteract ? "You cannot vote on this thread" : "Downvote"}
                           >
                             {childComment.userVoteType === 'DOWNVOTE' ? (
                               <FaThumbsDown size={12} />

@@ -142,4 +142,34 @@ export const canEditThread = async (threadId: number): Promise<boolean> => {
   ]);
   
   return admin || owner;
+};
+
+// Function to check if the current user can interact with a thread based on visibility
+export const canInteractWithThread = (
+  threadStyle: string | undefined, 
+  isFollowing: boolean, 
+  isOwner: boolean,
+  isAdmin: boolean
+): boolean => {
+  // Admins and owners can always interact
+  if (isAdmin || isOwner) {
+    return true;
+  }
+  
+  // For PUBLIC threads, anyone can interact
+  if (!threadStyle || threadStyle === 'PUBLIC') {
+    return true;
+  }
+  
+  // For FOLLOW_TO_INTERACT threads, only followers can interact
+  if (threadStyle === 'FOLLOW_TO_INTERACT') {
+    return isFollowing;
+  }
+  
+  // For PRIVATE threads, only the owner and admin can interact (handled above)
+  if (threadStyle === 'PRIVATE') {
+    return false; // Other users can't interact
+  }
+  
+  return true; // Default case
 }; 

@@ -6,6 +6,20 @@ import TagSelector from '../tags/TagSelector';
 import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
 import MainLayout from '../layout/MainLayout';
 
+// Add Thread visibility enum
+export enum ThreadStyle {
+  PUBLIC = 'PUBLIC',
+  PRIVATE = 'PRIVATE',
+  FOLLOW_TO_INTERACT = 'FOLLOW_TO_INTERACT'
+}
+
+// Add descriptions for each thread type
+const threadStyleDescriptions = {
+  [ThreadStyle.PUBLIC]: 'Anyone can view and interact with this thread',
+  [ThreadStyle.PRIVATE]: 'Only you and explicitly invited users can view and interact with this thread',
+  [ThreadStyle.FOLLOW_TO_INTERACT]: 'Anyone can view, but only followers can comment or vote'
+};
+
 interface User {
   id: number;
   username: string;
@@ -23,6 +37,7 @@ const CreateThreadPage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [threadStyle, setThreadStyle] = useState<ThreadStyle>(ThreadStyle.PUBLIC);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -124,7 +139,8 @@ const CreateThreadPage = () => {
           title,
           description: description || null,
           authorId: user.id,
-          tags: selectedTags
+          tags: selectedTags,
+          threadStyle: threadStyle
         })
       });
 
@@ -192,6 +208,27 @@ const CreateThreadPage = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={6}
               />
+            </div>
+
+            <div className="mb-6">
+              <label htmlFor="threadStyle" className="block text-sm font-medium text-gray-700 mb-2">
+                Thread Visibility
+              </label>
+              <select
+                id="threadStyle"
+                value={threadStyle}
+                onChange={(e) => setThreadStyle(e.target.value as ThreadStyle)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {Object.values(ThreadStyle).map((style) => (
+                  <option key={style} value={style}>
+                    {style.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-sm text-gray-500">
+                {threadStyleDescriptions[threadStyle]}
+              </p>
             </div>
 
             <div className="mb-8">

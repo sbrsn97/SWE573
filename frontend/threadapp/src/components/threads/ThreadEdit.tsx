@@ -14,6 +14,15 @@ import { FaEdit, FaTrash, FaArchive, FaUndo, FaExclamationTriangle } from 'react
 import TagSelector from '../tags/TagSelector';
 import { Tag } from '../tags/TagSelector';
 import { isProfanityError, formatProfanityError, ProfanityErrorMessage } from '../../utils/errorUtils';
+import { ThreadStyle } from './CreateThreadPage';
+import { Dropdown } from 'primereact/dropdown';
+
+// Thread visibility descriptions
+const threadStyleDescriptions = {
+  [ThreadStyle.PUBLIC]: 'Anyone can view and interact with this thread',
+  [ThreadStyle.PRIVATE]: 'Only you and explicitly invited users can view and interact with this thread',
+  [ThreadStyle.FOLLOW_TO_INTERACT]: 'Anyone can view, but only followers can comment or vote'
+};
 
 interface Thread {
   id: number;
@@ -31,6 +40,7 @@ interface Thread {
     username: string;
   };
   tags: Tag[];
+  threadStyle?: ThreadStyle;
 }
 
 const ThreadEdit = () => {
@@ -42,6 +52,7 @@ const ThreadEdit = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [threadStyle, setThreadStyle] = useState<ThreadStyle>(ThreadStyle.PUBLIC);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
@@ -76,6 +87,7 @@ const ThreadEdit = () => {
         setTitle(data.title);
         setDescription(data.description);
         setSelectedTags(data.tags || []);
+        setThreadStyle(data.threadStyle || ThreadStyle.PUBLIC);
         
         // Check permissions
         const [admin, owner] = await Promise.all([
@@ -102,6 +114,15 @@ const ThreadEdit = () => {
     fetchThread();
   }, [id, navigate]);
   
+  useEffect(() => {
+    if (thread) {
+      setTitle(thread.title);
+      setDescription(thread.description || '');
+      setSelectedTags(thread.tags || []);
+      setThreadStyle(thread.threadStyle || ThreadStyle.PUBLIC);
+    }
+  }, [thread]);
+  
   const handleTagsChange = (newTags: Tag[]) => {
     console.log('Tags changed to:', newTags);
     setSelectedTags(newTags);
@@ -109,65 +130,55 @@ const ThreadEdit = () => {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!title.trim() || !thread) {
-      toast.current?.show({ severity: 'error', summary: 'Validation Error', detail: 'Title is required or thread data is missing' });
-      return;
-    }
+    setSaving(true);
+    setError(null);
     
     try {
-      setSaving(true);
-      setError(null);
-      
       const response = await fetchWithAuth(`${API_ENDPOINTS.threads.update(Number(id))}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          id: Number(id),
           title,
           description,
-          authorId: thread.authorId,
-          tags: selectedTags
+          tags: selectedTags,
+          threadStyle: threadStyle,
+          authorId: thread?.authorId
         })
       });
       
-      if (!response.ok) {
-        if (handleAuthError(response, navigate)) return;
-        
-        try {
-          const errorData = await response.json();
-          console.error('Error updating thread:', errorData);
-          setError(errorData.message || 'Failed to update thread');
-          toast.current?.show({ 
-            severity: 'error', 
-            summary: 'Error', 
-            detail: errorData.message || 'Failed to update thread' 
-          });
-        } catch (parseError) {
-          console.error('Error parsing error response:', parseError);
-          console.error('Original response:', response);
-          setError('Failed to update thread. Server error.');
-          toast.current?.show({ 
-            severity: 'error', 
-            summary: 'Error', 
-            detail: 'Failed to update thread. Server error.' 
-          });
+      if (response.status === 401) {
+        if (handleAuthError(response, navigate)) {
+          return;
         }
+      }
+      
+      if (!response.ok) {
+        if (isProfanityError(await response.clone().json())) {
+          setError(formatProfanityError(await response.json()));
+        } else {
+          const errorData = await response.json();
+          setError(errorData.message || 'Failed to update thread');
+        }
+        setSaving(false);
         return;
       }
       
-      toast.current?.show({ severity: 'success', summary: 'Success', detail: 'Thread updated successfully' });
+      const result = await response.json();
+      setThread(result.data);
       
-      // Redirect to thread view after a short delay
-      setTimeout(() => {
-        navigate(`/threads/${id}`);
-      }, 1500);
-    } catch (error) {
-      console.error('Error updating thread:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred while updating the thread');
-      toast.current?.show({ severity: 'error', summary: 'Error', detail: 'An error occurred while updating the thread' });
+      toast.current?.show({ 
+        severity: 'success', 
+        summary: 'Success', 
+        detail: 'Thread updated successfully' 
+      });
+      
+      // Navigate back to thread view
+      navigate(`/threads/${id}`);
+    } catch (err) {
+      console.error('Error updating thread:', err);
+      setError('An error occurred while updating the thread');
     } finally {
       setSaving(false);
     }
@@ -411,11 +422,11 @@ const ThreadEdit = () => {
   
   return (
     <MainLayout>
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Edit Thread</h1>
-          <div className="flex" style={{ gap: "24px" }}>
-            <div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Edit Thread</h1>
+            <div className="flex gap-2">
               {thread.active ? (
                 <Button 
                   icon={<FaArchive className="mr-2" />}
@@ -442,10 +453,8 @@ const ThreadEdit = () => {
                   disabled={saving || (!isUserAdmin && thread.deactivatedByRole === 'ADMIN')}
                 />
               )}
-            </div>
-            
-            {isUserAdmin && !thread.active && (
-              <div>
+              
+              {isUserAdmin && !thread.active && (
                 <Button 
                   icon={<FaTrash className="mr-2" />}
                   label="Hard Delete" 
@@ -462,88 +471,108 @@ const ThreadEdit = () => {
                   }} 
                   disabled={saving}
                 />
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {!thread.active && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center">
-            <FaExclamationTriangle className="text-yellow-500 mr-2" />
-            <span className="text-sm text-yellow-700">
-              This thread is currently deactivated and not visible to other users.
-              {!isUserAdmin && thread.deactivatedByRole === 'ADMIN' && 
-                ' It was deactivated by an admin and only an admin can reactivate it.'}
-              {isUserAdmin && ' As an admin, you can permanently delete this thread now.'}
-            </span>
-          </div>
-        )}
-        
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
-          {error && <ProfanityErrorMessage message={error} />}
-          
-          <div className="mb-4">
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-              Title *
-            </label>
-            <InputText
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full"
-              required
-            />
-          </div>
-          
-          <div className="mb-4">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <InputTextarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-              className="w-full"
-            />
-          </div>
-          
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tags
-            </label>
-            <div className="text-xs text-gray-500 mb-2">
-              {selectedTags.length > 0 
-                ? `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected` 
-                : 'No tags selected'}
+              )}
             </div>
-            <TagSelector
-              selectedTags={selectedTags}
-              onTagsChange={handleTagsChange}
-            />
           </div>
           
-          <div className="flex justify-between items-center mt-6">
-            <Button 
-              type="button" 
-              label="Cancel" 
-              severity="secondary"
-              onClick={() => navigate(`/threads/${id}`)} 
-              disabled={saving}
-            />
+          {!thread.active && (
+            <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm">
+                    This thread is currently inactive and not visible to users.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
+            {error && <ProfanityErrorMessage message={error} />}
             
-            <Button 
-              type="submit" 
-              label={saving ? 'Saving...' : 'Save Changes'} 
-              icon="pi pi-save" 
-              disabled={saving}
-            />
-          </div>
-        </form>
+            <div className="mb-4">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                Title *
+              </label>
+              <InputText
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full"
+                required
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <InputTextarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={5}
+                className="w-full"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label htmlFor="threadStyle" className="block text-sm font-medium text-gray-700 mb-1">
+                Thread Visibility
+              </label>
+              <Dropdown
+                id="threadStyle"
+                value={threadStyle}
+                onChange={(e) => setThreadStyle(e.value)}
+                options={Object.values(ThreadStyle).map(style => ({
+                  label: style.replace(/_/g, ' '),
+                  value: style
+                }))}
+                placeholder="Select Thread Visibility"
+                className="w-full"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                {threadStyle ? threadStyleDescriptions[threadStyle] : ''}
+              </p>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tags
+              </label>
+              <div className="text-xs text-gray-500 mb-2">
+                {selectedTags.length > 0 
+                  ? `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected` 
+                  : 'No tags selected'}
+              </div>
+              <TagSelector
+                selectedTags={selectedTags}
+                onTagsChange={handleTagsChange}
+              />
+            </div>
+            
+            <div className="flex justify-end gap-4">
+              <Button 
+                label="Cancel" 
+                className="p-button-secondary" 
+                onClick={() => navigate(`/threads/${id}`)}
+                disabled={saving}
+              />
+              <Button 
+                label={saving ? "Saving..." : "Save Changes"} 
+                type="submit" 
+                disabled={saving}
+              />
+            </div>
+          </form>
+          
+          <Toast ref={toast} />
+          <ConfirmDialog />
+        </div>
       </div>
-      
-      <Toast ref={toast} position="bottom-right" />
-      <ConfirmDialog />
     </MainLayout>
   );
 };

@@ -115,6 +115,7 @@ public class ThreadController {
     public ResponseEntity<ApiResponse<ThreadDTO>> updateThread(
             @Parameter(description = "ID of the thread to update", required = true) @PathVariable Long id,
             @Parameter(description = "Updated thread data", required = true) @RequestBody ThreadDTO threadDTO) {
+        threadDTO.setId(id);
         Thread thread = threadService.updateThread(id, threadDTO);
         return ResponseEntity.ok(ApiResponse.success("Thread updated successfully", convertToDTO(thread)));
     }
@@ -159,17 +160,17 @@ public class ThreadController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> hardDeleteThread(@PathVariable Long id) {
         try {
-            Thread thread = threadService.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Thread not found"));
-            
+        Thread thread = threadService.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Thread not found"));
+        
             // Clear all associations before deleting
-            thread.hardDelete();
+        thread.hardDelete();
             threadService.save(thread); // Save the thread with cleared associations first
             
             // Then delete it
-            threadService.delete(thread);
+        threadService.delete(thread);
             
-            return ResponseEntity.ok(ApiResponse.success("Thread permanently deleted", null));
+        return ResponseEntity.ok(ApiResponse.success("Thread permanently deleted", null));
         } catch (Exception e) {
             // Log the error for debugging
             e.printStackTrace();

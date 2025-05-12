@@ -2,6 +2,7 @@ package com.swe573.tests;
 
 import com.swe573.models.Tag;
 import com.swe573.repositories.TagRepository;
+import com.swe573.services.NlpService;
 import com.swe573.services.impl.TagServiceImpl;
 import com.swe573.dto.TagDTO;
 import jakarta.persistence.EntityNotFoundException;
@@ -11,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.*;
 
@@ -18,10 +21,14 @@ import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class TagServiceTest {
 
     @Mock
     private TagRepository tagRepository;
+    
+    @Mock
+    private NlpService nlpService;
 
     @InjectMocks
     private TagServiceImpl tagService;
@@ -42,6 +49,9 @@ public class TagServiceTest {
         testTagDTO.setLabel("testtag");
         testTagDTO.setWikidataEntityId("Q123");
         testTagDTO.setDescription("Test Description");
+        
+        // Default behavior: no profanity
+        when(nlpService.containsProfanity(anyString())).thenReturn(false);
     }
 
     @Test
@@ -60,6 +70,18 @@ public class TagServiceTest {
         assertEquals(testTag.getWikidataEntityId(), result.getWikidataEntityId());
         assertEquals(testTag.getDescription(), result.getDescription());
         verify(tagRepository).save(any(Tag.class));
+        verify(nlpService).containsProfanity(testTagDTO.getLabel());
+        verify(nlpService).containsProfanity(testTagDTO.getDescription());
+    }
+    
+    @Test
+    void createTag_WithProfanity() {
+        // Arrange
+        when(nlpService.containsProfanity("testtag")).thenReturn(true);
+        
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> tagService.createTag(testTagDTO));
+        verify(tagRepository, never()).save(any(Tag.class));
     }
 
     @Test
@@ -154,6 +176,19 @@ public class TagServiceTest {
         assertEquals(testTag.getWikidataEntityId(), result.getWikidataEntityId());
         assertEquals(testTag.getDescription(), result.getDescription());
         verify(tagRepository).save(any(Tag.class));
+        verify(nlpService).containsProfanity(testTagDTO.getLabel());
+        verify(nlpService).containsProfanity(testTagDTO.getDescription());
+    }
+    
+    @Test
+    void updateTag_WithProfanity() {
+        // Arrange
+        when(tagRepository.findById(1L)).thenReturn(Optional.of(testTag));
+        when(nlpService.containsProfanity(testTagDTO.getDescription())).thenReturn(true);
+        
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> tagService.updateTag(1L, testTagDTO));
+        verify(tagRepository, never()).save(any(Tag.class));
     }
 
     @Test
@@ -199,8 +234,9 @@ public class TagServiceTest {
 
         // Assert
         assertNotNull(result);
+        assertFalse(result.isEmpty());
         assertEquals(1, result.size());
-        assertEquals(testTag, result.get(0));
+        assertEquals(testTag.getId(), result.get(0).getId());
     }
 
     @Test
@@ -214,7 +250,8 @@ public class TagServiceTest {
 
         // Assert
         assertNotNull(result);
+        assertFalse(result.isEmpty());
         assertEquals(1, result.size());
-        assertEquals(testTag, result.get(0));
+        assertEquals(testTag.getId(), result.get(0).getId());
     }
 } 

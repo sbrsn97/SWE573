@@ -276,9 +276,9 @@ public class StanfordNlpServiceImpl implements NlpService {
     }
     
     @Override
-    @Cacheable(value = "profanityCheck", key = "#text")
+    @Cacheable(value = "profanityCheck", key = "#text", condition = "#text != null")
     public boolean containsProfanity(String text) {
-        if (!StringUtils.hasText(text)) {
+        if (text == null || !StringUtils.hasText(text)) {
             return false;
         }
         
@@ -304,7 +304,7 @@ public class StanfordNlpServiceImpl implements NlpService {
             
             // Check for obfuscated words (e.g., "f*ck", "s**t")
             for (String profanity : profanityWordsList) {
-                if (word.length() >= 2 && 
+                if (word.length() >= 2 && profanity.length() >= 2 && 
                     word.charAt(0) == profanity.charAt(0) && 
                     word.charAt(word.length() - 1) == profanity.charAt(profanity.length() - 1)) {
                     

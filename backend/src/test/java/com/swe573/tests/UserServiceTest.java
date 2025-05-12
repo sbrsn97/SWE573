@@ -6,6 +6,7 @@ import com.swe573.dto.UserUpdateDTO;
 import com.swe573.dto.PasswordChangeDTO;
 import com.swe573.models.enums.Role;
 import com.swe573.repositories.UserRepository;
+import com.swe573.services.NlpService;
 import com.swe573.services.impl.UserServiceImpl;
 import com.swe573.exceptions.InvalidCredentialsException;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +15,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class UserServiceTest {
 
     @Mock
@@ -40,6 +44,9 @@ public class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+    
+    @Mock
+    private NlpService nlpService;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -67,6 +74,9 @@ public class UserServiceTest {
         
         // Setup SecurityContext mock
         SecurityContextHolder.setContext(securityContext);
+        
+        // Setup NlpService mock to always return false for profanity checks
+        when(nlpService.containsProfanity(anyString())).thenReturn(false);
     }
 
     @Test

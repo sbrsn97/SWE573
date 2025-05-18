@@ -27,27 +27,26 @@ Connect The Dots is available at [your domain]. The application is designed to w
    - Email address
    - Password
 3. Submit the form to create your account
-4. After registration, log in using your email and password
+4. After registration, log in using your username and password
 
 ## Account Management
 
 ### Viewing Your Profile
 
-1. Click on your username in the top-right corner
-2. Select "Profile" from the dropdown menu
-3. Your profile page displays:
+1. Click on your profile picture in the top-right corner
+2. Your profile page displays:
    - Your bio and personal information
    - Threads you've created
-   - Your activity history
 
 ### Updating Your Profile
 
 1. Navigate to your profile page
-2. Click "Edit Profile"
+2. Click "Pencil Icon" next to editable fields
 3. Update your information:
-   - Profile picture
    - Bio
    - Personal information
+   - Tags
+   - Description
 4. Save your changes
 
 ### Managing Account Settings
@@ -56,32 +55,33 @@ Connect The Dots is available at [your domain]. The application is designed to w
 2. Select "Settings" from the dropdown menu
 3. Update your preferences:
    - Password
-   - Email notifications
-   - Privacy settings
 
 ## Creating and Managing Threads
 
 ### Creating a New Thread
 
-1. Click the "+" button in the navigation bar or the "New Thread" button on the home page
+1. Click the "+" button in the side bar with the caption "New Thread" on it
 2. Enter a title for your thread
 3. Add tags to categorize your thread
 4. Write a description for your thread
 5. Click "Create" to save your thread
-6. You'll be redirected to the graph editor to build your knowledge graph
+6. You'll be redirected to the thread details page where you can see graph editor to build your knowledge graph
 
 ### Editing a Thread
 
-1. Navigate to the thread you want to edit
-2. Click the "Edit" button
-3. Make your changes to the title, tags, or description
-4. Click "Save" to update the thread
+1. Navigate to the thread you want to edit (as admin or the owner of the thread)
+2. Click the "Three dots" button
+3. Click Edit thread
+4. Make your changes to the title, tags, or description
+5. Click "Save" to update the thread
 
 ### Deleting a Thread
 
-1. Navigate to the thread you want to delete
+1. Navigate to the thread you want to delete (as admin or the owner of the thread)
 2. Click the "Delete" button
 3. Confirm the deletion
+
+Note: Only the admins can actually delete threads, normal users can only deactivate them which is going to make that thread undiscoverable. (It can be still accessed through thread owner's profile, favorites or through searching)
 
 ## Building Knowledge Graphs
 
@@ -91,7 +91,7 @@ The graph editor allows you to create visual knowledge graphs with nodes and con
 
 #### Adding Nodes
 
-1. Click the "Add Node" button in the toolbar
+1. Click the " + (Add Node)" button in the toolbar
 2. Enter the node name
 3. Select the node type
 4. Add any additional attributes
@@ -99,12 +99,10 @@ The graph editor allows you to create visual knowledge graphs with nodes and con
 
 #### Creating Connections
 
-1. Click on a source node
-2. While holding, drag to the target node
-3. Release to create a connection
-4. In the popup, select the relationship type
-5. Add any additional attributes
-6. Click "Create" to establish the connection
+1. Click "change mode" button to go into connection mode.
+2. Click on a source node
+3. While holding, drag to the target node
+4. Release to create a connection
 
 #### Editing Nodes and Connections
 
@@ -123,7 +121,7 @@ The graph editor allows you to create visual knowledge graphs with nodes and con
 
 ### Viewing Threads
 
-1. Browse the home page to see trending and recent threads
+1. Browse the home page to see trending and recent threads or browser thread listing page to see all threads
 2. Click on a thread title to view its details
 3. The thread view shows:
    - Thread information
@@ -156,12 +154,6 @@ The graph editor allows you to create visual knowledge graphs with nodes and con
 2. The notification panel shows all your recent notifications
 3. Unread notifications are highlighted
 
-### Managing Notifications
-
-1. Click on a notification to view the related content
-2. Click "Mark all as read" to clear all notifications
-3. Click the "X" on a notification to remove it
-
 ## Search Functionality
 
 ### Basic Search
@@ -172,17 +164,6 @@ The graph editor allows you to create visual knowledge graphs with nodes and con
 4. Results will include:
    - Threads matching your query
    - Users matching your query
-   - Graph nodes matching your query
-
-### Advanced Search
-
-1. Click "Advanced Search" in the search dropdown
-2. Specify filters:
-   - Content type (threads, users, nodes)
-   - Date range
-   - Tags
-   - Categories
-3. Click "Search" to view filtered results
 
 ## Analytics
 

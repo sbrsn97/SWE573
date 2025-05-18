@@ -82,7 +82,7 @@ A web application that allows users to create, share, and explore knowledge grap
    ```
 
 5. The application will be available at:
-   - Frontend: http://localhost
+   - Frontend: http://localhost:3000
    - Backend API: http://localhost:8080/api
    - PGAdmin: http://localhost:5050 (admin@admin.com / admin)
 
@@ -112,7 +112,7 @@ A web application that allows users to create, share, and explore knowledge grap
    npm install
    ```
 
-3. Create a `.env.local` file to configure the API endpoint:
+3. Make sure the `.env` file is configured to use the correct API endpoint:
    ```
    echo "VITE_API_BASE_URL=http://localhost:8080/api" > .env.local
    ```
@@ -174,16 +174,6 @@ The backend application is configured through `application.properties`. Importan
 - Logging settings
 
 See `config/application.properties.sample` for details.
-
-### Nginx Configuration
-
-The frontend is served through Nginx, which also acts as a reverse proxy for API requests. Configuration options include:
-
-- Server settings
-- Proxy configuration for API requests
-- WebSocket support
-
-See `config/nginx.conf.sample` for details.
 
 ## Database Initialization
 

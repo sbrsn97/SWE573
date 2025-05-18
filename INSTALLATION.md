@@ -44,7 +44,7 @@ docker-compose up -d
 
 ### Step 4: Access the Application
 
-- **Frontend**: http://localhost
+- **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8080/api
 - **PGAdmin** (Database Admin): http://localhost:5050
   - Email: admin@admin.com
@@ -155,7 +155,7 @@ curl http://localhost:8080/api/health
 ### Test Frontend
 
 1. Open a web browser and navigate to:
-   - http://localhost (for Docker installation)
+   - http://localhost:3000 (for Docker installation)
    - http://localhost:5173 (for local development)
 
 2. You should see the Connect The Dots login page.
